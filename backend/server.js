@@ -157,7 +157,7 @@ app.use((err, req, res, next) => {
 // Get chat history endpoint
 app.get('/api/messages', async (req, res) => {
   try {
-    const messages = await Message.find({ type: { $ne: 'system' } })
+    const messages = await Message.find()
       .sort({ createdAt: -1 })
       .limit(200);
     res.json(messages.reverse());
@@ -198,13 +198,24 @@ function getDhakaTime() {
   });
 }
 
+// Track active socket connections per user
+const activeUsers = new Map(); // username -> Set of socket.id
+
 // Socket.io connection handler
 io.on('connection', async (socket) => {
-  console.log(`${socket.username} connected`);
+  const username = socket.username;
+  console.log(`${username} connected`);
+  
+  if (!activeUsers.has(username)) {
+    activeUsers.set(username, new Set());
+  }
+  const userSockets = activeUsers.get(username);
+  const isFirstConnection = userSockets.size === 0;
+  userSockets.add(socket.id);
   
   // Send chat history to the connected user (latest 200 messages in chronological order)
   try {
-    const messages = await Message.find({ type: { $ne: 'system' } })
+    const messages = await Message.find()
       .sort({ createdAt: -1 })
       .limit(200);
     socket.emit('load messages', messages.reverse());
@@ -212,12 +223,22 @@ io.on('connection', async (socket) => {
     console.error('❌ Error loading messages:', err.message);
   }
   
-  // Notify others that user joined (transient live notification)
-  socket.broadcast.emit('user joined', {
-    type: 'system',
-    message: `${socket.username} joined the chat`,
-    timestamp: getDhakaTime()
-  });
+  // If this is the user's first connection, record and broadcast join event
+  if (isFirstConnection) {
+    const joinMessage = new Message({
+      type: 'system',
+      username: username,
+      message: `${username} joined the chat`,
+      timestamp: getDhakaTime()
+    });
+
+    try {
+      await joinMessage.save();
+      socket.broadcast.emit('user joined', joinMessage);
+    } catch (err) {
+      console.error('❌ Error saving join message:', err.message);
+    }
+  }
   
   socket.on('chat message', async (msg) => {
     try {
@@ -260,15 +281,32 @@ io.on('connection', async (socket) => {
     }
   });
 
-  socket.on('disconnect', () => {
-    console.log(`${socket.username} disconnected`);
+  socket.on('disconnect', async () => {
+    console.log(`${username} disconnected`);
     
-    // Notify others that user left (transient live notification)
-    socket.broadcast.emit('user left', {
-      type: 'system',
-      message: `${socket.username} left the chat`,
-      timestamp: getDhakaTime()
-    });
+    if (activeUsers.has(username)) {
+      const sockets = activeUsers.get(username);
+      sockets.delete(socket.id);
+      
+      // If user has no other active tabs/connections, record leave event
+      if (sockets.size === 0) {
+        activeUsers.delete(username);
+        
+        const leaveMessage = new Message({
+          type: 'system',
+          username: username,
+          message: `${username} left the chat`,
+          timestamp: getDhakaTime()
+        });
+
+        try {
+          await leaveMessage.save();
+          socket.broadcast.emit('user left', leaveMessage);
+        } catch (err) {
+          console.error('❌ Error saving leave message:', err.message);
+        }
+      }
+    }
   });
 });
 

@@ -612,11 +612,12 @@
       function displaySystemMessage(msg) {
         const item = document.createElement('li');
         item.className = 'system';
-        if (typeof msg === 'string') {
-          item.textContent = msg;
-        } else {
-          item.textContent = msg.message;
-        }
+        const text = typeof msg === 'string' ? msg : (msg.message || '');
+        const time = formatDhakaTime(msg);
+        item.innerHTML = `
+          <span>${escapeHtml(text)}</span>
+          ${time ? `<span style="font-size: 11px; opacity: 0.8; margin-left: 6px; font-weight: 500;">• ${time}</span>` : ''}
+        `;
         document.getElementById('messages').appendChild(item);
       }
 
