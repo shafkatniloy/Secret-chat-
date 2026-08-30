@@ -199,7 +199,7 @@
       // Get backend URL from environment or use default
       const BACKEND_URL = window.location.hostname === 'localhost' 
         ? 'http://localhost:3000' 
-        : window.location.origin.replace('3001', '3000');
+        : 'https://secret-chat-bq7n.onrender.com';
 
       let socket = null;
       let currentUsername = null;
