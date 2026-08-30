@@ -560,12 +560,28 @@
         });
       }
 
+      function formatDhakaTime(data) {
+        if (data.createdAt) {
+          try {
+            return new Date(data.createdAt).toLocaleTimeString('en-US', {
+              timeZone: 'Asia/Dhaka',
+              hour: 'numeric',
+              minute: '2-digit',
+              hour12: true
+            });
+          } catch (e) {
+            console.error('Error formatting time:', e);
+          }
+        }
+        return data.timestamp || '';
+      }
+
       function displayMessage(data) {
         const item = document.createElement('li');
         item.innerHTML = `
           <div class="message-header">
             <span>${escapeHtml(data.username)}</span>
-            <span class="message-time">${data.timestamp}</span>
+            <span class="message-time">${formatDhakaTime(data)}</span>
           </div>
           <div class="message-text">${escapeHtml(data.message)}</div>
         `;
@@ -577,7 +593,7 @@
         item.innerHTML = `
           <div class="message-header">
             <span>${escapeHtml(data.username)}</span>
-            <span class="message-time">${data.timestamp}</span>
+            <span class="message-time">${formatDhakaTime(data)}</span>
           </div>
           <img src="${data.imagePath}" style="max-width: 100%; max-height: 300px; border-radius: 8px; margin-top: 8px; display: block;" />
         `;

@@ -186,6 +186,16 @@ io.use((socket, next) => {
   next();
 });
 
+// Helper to format timestamp in Dhaka timezone (Asia/Dhaka)
+function getDhakaTime() {
+  return new Date().toLocaleTimeString('en-US', {
+    timeZone: 'Asia/Dhaka',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true
+  });
+}
+
 // Socket.io connection handler
 io.on('connection', (socket) => {
   console.log(`${socket.username} connected`);
@@ -199,7 +209,7 @@ io.on('connection', (socket) => {
   const joinMessage = new Message({
     type: 'system',
     message: `${socket.username} joined the chat`,
-    timestamp: new Date().toLocaleTimeString()
+    timestamp: getDhakaTime()
   });
   
   joinMessage.save().then(() => {
@@ -211,7 +221,7 @@ io.on('connection', (socket) => {
       type: 'message',
       username: socket.username,
       message: msg,
-      timestamp: new Date().toLocaleTimeString()
+      timestamp: getDhakaTime()
     });
     
     await messageData.save();
@@ -228,7 +238,7 @@ io.on('connection', (socket) => {
       username: socket.username,
       imagePath: data.imagePath,
       imagePublicId: data.publicId,
-      timestamp: new Date().toLocaleTimeString()
+      timestamp: getDhakaTime()
     });
     
     await messageData.save();
@@ -245,7 +255,7 @@ io.on('connection', (socket) => {
     const leaveMessage = new Message({
       type: 'system',
       message: `${socket.username} left the chat`,
-      timestamp: new Date().toLocaleTimeString()
+      timestamp: getDhakaTime()
     });
     
     await leaveMessage.save();
