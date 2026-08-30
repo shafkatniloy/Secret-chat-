@@ -1,10 +1,7 @@
-build = "echo 'Frontend is static files only'"
-publish = "frontend"
+[build]
+  publish = "frontend"
 
 [[redirects]]
 from = "/*"
 to = "/index.html"
 status = 200
-
-[build.environment]
-NODE_VERSION = "18"
