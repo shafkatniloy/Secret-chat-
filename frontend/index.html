@@ -457,11 +457,17 @@
       }
 
       function connectToChat(username, password) {
+        if (socket) {
+          socket.removeAllListeners();
+          socket.disconnect();
+        }
+
         socket = io(BACKEND_URL, {
           auth: {
             username: username,
             password: password
-          }
+          },
+          forceNew: true
         });
 
         socket.on('connect', () => {
@@ -476,11 +482,14 @@
 
         socket.on('connect_error', (error) => {
           showError('Invalid username or password.');
-          socket.disconnect();
+          if (socket) {
+            socket.disconnect();
+          }
           currentUsername = null;
         });
 
         socket.on('load messages', (messages) => {
+          document.getElementById('messages').innerHTML = '';
           messages.forEach(msg => {
             if (msg.type === 'message') {
               displayMessage(msg);
@@ -623,8 +632,15 @@
 
       function handleLogout() {
         if (socket) {
+          socket.removeAllListeners();
           socket.disconnect();
+          socket = null;
         }
+        document.getElementById('loginScreen').style.display = 'flex';
+        document.getElementById('chatScreen').style.display = 'none';
+        document.getElementById('usernameInput').value = '';
+        document.getElementById('passwordInput').value = '';
+        currentUsername = null;
       }
 
       function escapeHtml(text) {

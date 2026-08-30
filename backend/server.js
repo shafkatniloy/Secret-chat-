@@ -157,8 +157,10 @@ app.use((err, req, res, next) => {
 // Get chat history endpoint
 app.get('/api/messages', async (req, res) => {
   try {
-    const messages = await Message.find().sort({ createdAt: 1 }).limit(100);
-    res.json(messages);
+    const messages = await Message.find({ type: { $ne: 'system' } })
+      .sort({ createdAt: -1 })
+      .limit(200);
+    res.json(messages.reverse());
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -197,69 +199,76 @@ function getDhakaTime() {
 }
 
 // Socket.io connection handler
-io.on('connection', (socket) => {
+io.on('connection', async (socket) => {
   console.log(`${socket.username} connected`);
   
-  // Send chat history to the connected user
-  Message.find().sort({ createdAt: 1 }).limit(100).then(messages => {
-    socket.emit('load messages', messages);
-  });
+  // Send chat history to the connected user (latest 200 messages in chronological order)
+  try {
+    const messages = await Message.find({ type: { $ne: 'system' } })
+      .sort({ createdAt: -1 })
+      .limit(200);
+    socket.emit('load messages', messages.reverse());
+  } catch (err) {
+    console.error('❌ Error loading messages:', err.message);
+  }
   
-  // Notify others that user joined
-  const joinMessage = new Message({
+  // Notify others that user joined (transient live notification)
+  socket.broadcast.emit('user joined', {
     type: 'system',
     message: `${socket.username} joined the chat`,
     timestamp: getDhakaTime()
   });
   
-  joinMessage.save().then(() => {
-    socket.broadcast.emit('user joined', joinMessage);
-  });
-  
   socket.on('chat message', async (msg) => {
-    const messageData = new Message({
-      type: 'message',
-      username: socket.username,
-      message: msg,
-      timestamp: getDhakaTime()
-    });
-    
-    await messageData.save();
-    
-    // Emit to sender
-    socket.emit('chat message', messageData);
-    // Broadcast to all other users
-    socket.broadcast.emit('chat message', messageData);
+    try {
+      const messageData = new Message({
+        type: 'message',
+        username: socket.username,
+        message: msg,
+        timestamp: getDhakaTime()
+      });
+      
+      await messageData.save();
+      
+      // Emit to sender
+      socket.emit('chat message', messageData);
+      // Broadcast to all other users
+      socket.broadcast.emit('chat message', messageData);
+    } catch (err) {
+      console.error('❌ Error saving chat message:', err.message);
+    }
   });
 
   socket.on('image message', async (data) => {
-    const messageData = new Message({
-      type: 'image',
-      username: socket.username,
-      imagePath: data.imagePath,
-      imagePublicId: data.publicId,
-      timestamp: getDhakaTime()
-    });
-    
-    await messageData.save();
-    
-    // Emit to sender
-    socket.emit('image message', messageData);
-    // Broadcast to all other users
-    socket.broadcast.emit('image message', messageData);
+    try {
+      const messageData = new Message({
+        type: 'image',
+        username: socket.username,
+        imagePath: data.imagePath,
+        imagePublicId: data.publicId,
+        timestamp: getDhakaTime()
+      });
+      
+      await messageData.save();
+      
+      // Emit to sender
+      socket.emit('image message', messageData);
+      // Broadcast to all other users
+      socket.broadcast.emit('image message', messageData);
+    } catch (err) {
+      console.error('❌ Error saving image message:', err.message);
+    }
   });
 
-  socket.on('disconnect', async () => {
+  socket.on('disconnect', () => {
     console.log(`${socket.username} disconnected`);
     
-    const leaveMessage = new Message({
+    // Notify others that user left (transient live notification)
+    socket.broadcast.emit('user left', {
       type: 'system',
       message: `${socket.username} left the chat`,
       timestamp: getDhakaTime()
     });
-    
-    await leaveMessage.save();
-    socket.broadcast.emit('user left', leaveMessage);
   });
 });
 
