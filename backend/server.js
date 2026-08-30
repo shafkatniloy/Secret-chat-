@@ -89,20 +89,38 @@ app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
 
 // Connect to MongoDB
+console.log('🔄 Connecting to MongoDB...');
 mongoose.connect(MONGODB_URI, {
   retryWrites: true,
-  w: 'majority'
+  w: 'majority',
+  serverSelectionTimeoutMS: 5000,
+  connectTimeoutMS: 10000,
+  ssl: true,
+  tlsAllowInvalidCertificates: false,
+  tlsAllowInvalidHostnames: false
 }).then(() => {
   console.log('✅ Connected to MongoDB');
 }).catch(err => {
   console.error('❌ MongoDB connection error:', err.message);
+  console.log('⚠️ Note: Backend will still work, but messages/images won\'t persist until MongoDB connects');
+  console.log('💡 Common fixes:');
+  console.log('   1. Check MongoDB URI is correct');
+  console.log('   2. Verify IP is whitelisted in MongoDB Atlas (Network Access)');
+  console.log('   3. Try allowing all IPs temporarily (0.0.0.0/0) for testing');
 });
 
 // File upload endpoint
 app.post('/api/upload', upload.single('file'), (req, res) => {
   if (!req.file) {
+    console.error('❌ Upload failed: No file received');
     return res.status(400).json({ error: 'No file uploaded' });
   }
+  
+  console.log('✅ File uploaded to Cloudinary:', {
+    filename: req.file.filename,
+    path: req.file.path,
+    publicId: req.file.public_id
+  });
   
   res.json({
     filename: req.file.filename,
@@ -110,6 +128,15 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
     publicId: req.file.public_id,
     mimetype: req.file.mimetype
   });
+});
+
+// Error handler for upload
+app.use((err, req, res, next) => {
+  if (err.message && err.message.includes('Only images')) {
+    return res.status(400).json({ error: err.message });
+  }
+  console.error('❌ Upload error:', err.message);
+  res.status(500).json({ error: 'File upload failed: ' + err.message });
 });
 
 // Get chat history endpoint

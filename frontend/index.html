@@ -306,7 +306,7 @@
             showError(data.error);
           } else {
             socket.emit('image message', {
-              imagePath: BACKEND_URL + data.path,
+              imagePath: data.path,  // Cloudinary already returns full URL
               filename: data.filename
             });
           }
