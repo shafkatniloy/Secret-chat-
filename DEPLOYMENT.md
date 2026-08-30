@@ -82,12 +82,40 @@ Replace with your actual Render URL, then redeploy to Netlify.
 - Messages stored in `messages.json` (will be cleared on Render redeploy)
 - For production, use MongoDB for persistent storage
 
-## 💾 Persistent Storage (Optional Upgrade)
+## 💾 Persistent Storage (FREE)
 
-To keep messages and images after redeployment:
-- Use MongoDB Atlas (free tier available)
-- Use AWS S3 for image storage
-- Contact me for help setting this up!
+Your app now uses **free** cloud services for permanent data storage:
+
+### MongoDB Atlas (Free - 512MB, always free)
+1. Go to [mongodb.com/cloud/atlas](https://www.mongodb.com/cloud/atlas)
+2. Sign up (no credit card needed)
+3. Create a free cluster
+4. Click "Connect" → "Drivers"
+5. Copy the connection string
+6. Create a `.env` file in `backend/` and add:
+   ```
+   MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/secret-chat
+   ```
+
+### Cloudinary (Free - 10GB storage)
+1. Go to [cloudinary.com](https://cloudinary.com)
+2. Sign up (no credit card needed)
+3. Copy your Cloud Name, API Key, and API Secret from Dashboard
+4. Add to `backend/.env`:
+   ```
+   CLOUDINARY_CLOUD_NAME=your_cloud_name
+   CLOUDINARY_API_KEY=your_api_key
+   CLOUDINARY_API_SECRET=your_api_secret
+   ```
+
+### Benefits
+✅ **Messages persist forever** - not lost on server restart  
+✅ **Images stored permanently** - on Cloudinary (10GB free)  
+✅ **Free tier is generous** - perfect for a 2-user chat app  
+✅ **No credit card** needed for either service  
+✅ **Unlimited bandwidth** on Cloudinary free tier  
+
+Now your chat is truly production-ready!
 
 ## 🆘 Troubleshooting
 
@@ -96,11 +124,18 @@ To keep messages and images after redeployment:
 - Check CORS is enabled in `backend/server.js`
 - Ensure Render backend is running: visit `https://your-backend.onrender.com/api/health`
 
-**Images not loading?**
-- Check image path in browser console
-- Ensure Render backend is running
-- Images are temporary - they're deleted when Render server restarts
+**MongoDB connection error?**
+- Check MongoDB URI in `.env` is correct
+- Visit MongoDB Atlas dashboard → Network Access
+- Add your Render IP address to whitelist (or allow all IPs: 0.0.0.0/0)
+- Check username and password in connection string
 
-**Messages disappear?**
-- Render deletes temporary files on server restart
-- For persistent storage, upgrade to MongoDB setup
+**Images won't upload?**
+- Verify Cloudinary credentials in `.env`
+- Check API key is active in Cloudinary dashboard
+- Ensure file size is under 10MB
+
+**Messages appear locally but disappear after deploy?**
+- Make sure `MONGODB_URI` environment variable is set on Render
+- Check MongoDB connection is successful: look for ✅ in logs
+- Verify .gitignore doesn't exclude `.env` from backend folder

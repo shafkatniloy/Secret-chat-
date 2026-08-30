@@ -1,4 +1,14 @@
-# 🚀 Quick Start - Deploy to Render + Netlify
+# 🚀 Quick Start - Deploy to Render + Netlify (with Persistent Storage)
+
+## 🎉 BONUS: Free Persistent Storage!
+
+Before you deploy, set up **FREE** permanent storage:
+- **Messages**: [MongoDB Atlas](https://mongodb.com/cloud/atlas) (512MB free)
+- **Images**: [Cloudinary](https://cloudinary.com) (10GB free)
+
+📖 **Follow the complete setup guide**: [MONGODB_CLOUDINARY_SETUP.md](MONGODB_CLOUDINARY_SETUP.md)
+
+---
 
 ## Step 1️⃣: Set Up GitHub Repository
 
@@ -27,6 +37,10 @@ git push -u origin main
 5. Click **"Advanced"** and add Environment Variables:
    - `PORT`: `3000`
    - `FRONTEND_URL`: (leave blank for now, update after Netlify deploy)
+   - `MONGODB_URI`: Your MongoDB connection string
+   - `CLOUDINARY_CLOUD_NAME`: Your Cloudinary cloud name
+   - `CLOUDINARY_API_KEY`: Your Cloudinary API key
+   - `CLOUDINARY_API_SECRET`: Your Cloudinary API secret
 
 6. Click **"Create Web Service"** and wait for deployment
 7. Once deployed, copy your URL (e.g., `https://secret-chat-backend.onrender.com`)
@@ -96,11 +110,10 @@ npm run dev
 
 ## 📌 Important Notes
 
-- **Messages are temporary on Render** - they'll be cleared when server restarts (free tier limitation)
-- **Uploaded images are temporary** - stored in Render's filesystem
-- For production, upgrade to:
-  - [MongoDB Atlas](https://www.mongodb.com/cloud/atlas) for persistent messages
-  - [Cloudinary](https://cloudinary.com) or AWS S3 for image storage
+✅ **Messages are now PERMANENT** - stored in MongoDB Atlas (free tier)  
+✅ **Uploaded images are PERMANENT** - stored in Cloudinary (free tier)  
+✅ **No credit card required** for either service  
+✅ **Free forever** - your 2-user chat will never exceed free tier limits
 
 ## 🆘 Troubleshooting
 
@@ -110,12 +123,19 @@ npm run dev
 - Verify `BACKEND_URL` in frontend matches Render URL
 - Check CORS settings in `backend/server.js`
 
-**"Images won't load"**
-- Render free tier deletes files on restart
-- Backend might be sleeping - visit health endpoint to wake it
+**"MongoDB connection error"**
+- Make sure you added `MONGODB_URI` to Render environment variables
+- Check MongoDB whitelist includes Render's IP (0.0.0.0/0 is easier)
+- Verify connection string has no typos
+
+**"Images won't upload"**
+- Ensure Cloudinary credentials are correct in Render env vars
+- Check file size is under 10MB
+- Verify API key is active in Cloudinary dashboard
 
 **"Messages disappear after refresh"**
-- Render free tier doesn't persist files
-- Upgrade to MongoDB + AWS S3 for production use
+- Check MongoDB Atlas dashboard → confirm data is there
+- Verify `MONGODB_URI` environment variable is set on Render
+- Look at Render logs - should see ✅ Connected to MongoDB
 
-**Need help?** Check `DEPLOYMENT.md` for detailed instructions!
+**Need help?** Check [MONGODB_CLOUDINARY_SETUP.md](MONGODB_CLOUDINARY_SETUP.md) for detailed setup!

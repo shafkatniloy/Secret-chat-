@@ -1,17 +1,19 @@
 const express = require('express');
 const http = require('http');
 const { Server } = require("socket.io");
+const mongoose = require('mongoose');
+const cloudinary = require('cloudinary').v2;
+const { CloudinaryStorage } = require('multer-storage-cloudinary');
 const multer = require('multer');
-const fs = require('fs');
-const path = require('path');
 const cors = require('cors');
 require('dotenv').config();
 
 const app = express();
 const server = http.createServer(app);
 
-// Get frontend URL from environment variable
-const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
+// Get frontend URL and MongoDB URI from environment variables
+const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3001';
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/secret-chat';
 
 const io = new Server(server, {
   cors: {
@@ -25,26 +27,43 @@ const io = new Server(server, {
 // Valid users
 const validUsers = ['Niloy', 'Mim'];
 
-// Create uploads directory if it doesn't exist
-const uploadsDir = path.join(__dirname, 'uploads');
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir);
-}
+// Configure Cloudinary
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET
+});
 
-// Create messages storage file if it doesn't exist
-const messagesFile = path.join(__dirname, 'messages.json');
-if (!fs.existsSync(messagesFile)) {
-  fs.writeFileSync(messagesFile, JSON.stringify([]));
-}
-
-// Setup multer for file uploads
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, uploadsDir);
+// MongoDB Message Schema
+const messageSchema = new mongoose.Schema({
+  type: {
+    type: String,
+    enum: ['message', 'image', 'system'],
+    required: true
   },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, uniqueSuffix + path.extname(file.originalname));
+  username: String,
+  message: String,
+  imagePath: String,
+  imagePublicId: String,
+  timestamp: String,
+  createdAt: {
+    type: Date,
+    default: Date.now
+  }
+});
+
+const Message = mongoose.model('Message', messageSchema);
+
+// Setup multer with Cloudinary storage
+const storage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: 'secret-chat',
+    resource_type: 'auto',
+    format: async (req, file) => 'jpg',
+    public_id: (req, file) => {
+      return Date.now() + '-' + Math.round(Math.random() * 1E9);
+    }
   }
 });
 
@@ -61,21 +80,6 @@ const upload = multer({
   limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit
 });
 
-// Helper functions for message storage
-function getMessages() {
-  try {
-    return JSON.parse(fs.readFileSync(messagesFile, 'utf8'));
-  } catch (err) {
-    return [];
-  }
-}
-
-function saveMessage(messageData) {
-  const messages = getMessages();
-  messages.push(messageData);
-  fs.writeFileSync(messagesFile, JSON.stringify(messages, null, 2));
-}
-
 // Middleware
 app.use(cors({
   origin: FRONTEND_URL,
@@ -84,8 +88,15 @@ app.use(cors({
 app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
 
-// Serve uploaded files
-app.use('/uploads', express.static(uploadsDir));
+// Connect to MongoDB
+mongoose.connect(MONGODB_URI, {
+  retryWrites: true,
+  w: 'majority'
+}).then(() => {
+  console.log('✅ Connected to MongoDB');
+}).catch(err => {
+  console.error('❌ MongoDB connection error:', err.message);
+});
 
 // File upload endpoint
 app.post('/api/upload', upload.single('file'), (req, res) => {
@@ -95,15 +106,20 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
   
   res.json({
     filename: req.file.filename,
-    path: `/uploads/${req.file.filename}`,
+    path: req.file.path,
+    publicId: req.file.public_id,
     mimetype: req.file.mimetype
   });
 });
 
 // Get chat history endpoint
-app.get('/api/messages', (req, res) => {
-  const messages = getMessages();
-  res.json(messages);
+app.get('/api/messages', async (req, res) => {
+  try {
+    const messages = await Message.find().sort({ createdAt: 1 }).limit(100);
+    res.json(messages);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // Health check endpoint
@@ -128,54 +144,64 @@ io.on('connection', (socket) => {
   console.log(`${socket.username} connected`);
   
   // Send chat history to the connected user
-  const messages = getMessages();
-  socket.emit('load messages', messages);
+  Message.find().sort({ createdAt: 1 }).limit(100).then(messages => {
+    socket.emit('load messages', messages);
+  });
   
   // Notify others that user joined
-  const joinMessage = {
+  const joinMessage = new Message({
     type: 'system',
     message: `${socket.username} joined the chat`,
     timestamp: new Date().toLocaleTimeString()
-  };
-  saveMessage(joinMessage);
-  socket.broadcast.emit('user joined', joinMessage);
+  });
   
-  socket.on('chat message', (msg) => {
-    const messageData = {
+  joinMessage.save().then(() => {
+    socket.broadcast.emit('user joined', joinMessage);
+  });
+  
+  socket.on('chat message', async (msg) => {
+    const messageData = new Message({
       type: 'message',
       username: socket.username,
       message: msg,
       timestamp: new Date().toLocaleTimeString()
-    };
-    saveMessage(messageData);
+    });
+    
+    await messageData.save();
+    
     // Emit to sender
     socket.emit('chat message', messageData);
     // Broadcast to all other users
     socket.broadcast.emit('chat message', messageData);
   });
 
-  socket.on('image message', (data) => {
-    const messageData = {
+  socket.on('image message', async (data) => {
+    const messageData = new Message({
       type: 'image',
       username: socket.username,
       imagePath: data.imagePath,
+      imagePublicId: data.publicId,
       timestamp: new Date().toLocaleTimeString()
-    };
-    saveMessage(messageData);
+    });
+    
+    await messageData.save();
+    
     // Emit to sender
     socket.emit('image message', messageData);
     // Broadcast to all other users
     socket.broadcast.emit('image message', messageData);
   });
 
-  socket.on('disconnect', () => {
+  socket.on('disconnect', async () => {
     console.log(`${socket.username} disconnected`);
-    const leaveMessage = {
+    
+    const leaveMessage = new Message({
       type: 'system',
       message: `${socket.username} left the chat`,
       timestamp: new Date().toLocaleTimeString()
-    };
-    saveMessage(leaveMessage);
+    });
+    
+    await leaveMessage.save();
     socket.broadcast.emit('user left', leaveMessage);
   });
 });
@@ -184,4 +210,5 @@ const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
   console.log(`Chat backend is ready on port ${PORT}`);
   console.log(`Frontend URL: ${FRONTEND_URL}`);
+  console.log(`Database: ${MONGODB_URI}`);
 });
