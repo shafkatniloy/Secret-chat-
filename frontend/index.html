@@ -389,6 +389,13 @@
           autocomplete="off"
           required
         />
+        <input 
+          type="password" 
+          id="passwordInput" 
+          placeholder="Enter password" 
+          autocomplete="off"
+          required
+        />
         <button type="submit">Enter Chat</button>
       </form>
     </div>
@@ -432,21 +439,28 @@
       function handleLogin(event) {
         event.preventDefault();
         const username = document.getElementById('usernameInput').value.trim();
+        const password = document.getElementById('passwordInput').value.trim();
         
         if (!username) {
           showError('Please enter your name');
           return;
         }
         
+        if (!password) {
+          showError('Please enter your password');
+          return;
+        }
+        
         // Store username and connect to socket
         currentUsername = username;
-        connectToChat(username);
+        connectToChat(username, password);
       }
 
-      function connectToChat(username) {
+      function connectToChat(username, password) {
         socket = io(BACKEND_URL, {
           auth: {
-            username: username
+            username: username,
+            password: password
           }
         });
 
@@ -461,7 +475,7 @@
         });
 
         socket.on('connect_error', (error) => {
-          showError('Access denied. Only Niloy and Mim are allowed.');
+          showError('Invalid username or password.');
           socket.disconnect();
           currentUsername = null;
         });
@@ -503,6 +517,7 @@
           document.getElementById('loginScreen').style.display = 'flex';
           document.getElementById('chatScreen').style.display = 'none';
           document.getElementById('usernameInput').value = '';
+          document.getElementById('passwordInput').value = '';
           currentUsername = null;
         });
       }

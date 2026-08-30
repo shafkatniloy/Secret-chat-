@@ -24,8 +24,11 @@ const io = new Server(server, {
   }
 });
 
-// Valid users
-const validUsers = ['Niloy', 'Mim'];
+// Valid users with passwords
+const validUsers = {
+  'Niloy': 'niloy1488',
+  'Mim': 'ohona24'
+};
 
 // Configure Cloudinary
 cloudinary.config({
@@ -157,8 +160,13 @@ app.get('/api/health', (req, res) => {
 // Middleware to check authentication for socket.io
 io.use((socket, next) => {
   const username = socket.handshake.auth.username;
+  const password = socket.handshake.auth.password;
   
-  if (!username || !validUsers.includes(username)) {
+  if (!username || !password) {
+    return next(new Error('Unauthorized'));
+  }
+  
+  if (!validUsers[username] || validUsers[username] !== password) {
     return next(new Error('Unauthorized'));
   }
   
