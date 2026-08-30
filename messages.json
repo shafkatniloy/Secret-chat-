@@ -1,0 +1,119 @@
+[
+  {
+    "type": "system",
+    "message": "Niloy joined the chat",
+    "timestamp": "5:12:39 PM"
+  },
+  {
+    "type": "message",
+    "username": "Niloy",
+    "message": "hi",
+    "timestamp": "5:12:43 PM"
+  },
+  {
+    "type": "image",
+    "username": "Niloy",
+    "imagePath": "/uploads/1788088367953-971853533.jpg",
+    "timestamp": "5:12:47 PM"
+  },
+  {
+    "type": "message",
+    "username": "Niloy",
+    "message": "hi",
+    "timestamp": "5:12:54 PM"
+  },
+  {
+    "type": "system",
+    "message": "Mim joined the chat",
+    "timestamp": "5:13:09 PM"
+  },
+  {
+    "type": "message",
+    "username": "Mim",
+    "message": "hi",
+    "timestamp": "5:13:16 PM"
+  },
+  {
+    "type": "image",
+    "username": "Niloy",
+    "imagePath": "/uploads/1788088405005-45983822.jpg",
+    "timestamp": "5:13:25 PM"
+  },
+  {
+    "type": "message",
+    "username": "Mim",
+    "message": "hi",
+    "timestamp": "5:13:34 PM"
+  },
+  {
+    "type": "system",
+    "message": "Niloy joined the chat",
+    "timestamp": "5:15:56 PM"
+  },
+  {
+    "type": "system",
+    "message": "Mim joined the chat",
+    "timestamp": "5:16:08 PM"
+  },
+  {
+    "type": "message",
+    "username": "Mim",
+    "message": "s",
+    "timestamp": "5:16:12 PM"
+  },
+  {
+    "type": "image",
+    "username": "Niloy",
+    "imagePath": "/uploads/1788088578992-561919730.jpg",
+    "timestamp": "5:16:19 PM"
+  },
+  {
+    "type": "message",
+    "username": "Mim",
+    "message": "where",
+    "timestamp": "5:16:24 PM"
+  },
+  {
+    "type": "system",
+    "message": "Niloy joined the chat",
+    "timestamp": "5:19:09 PM"
+  },
+  {
+    "type": "system",
+    "message": "Niloy joined the chat",
+    "timestamp": "5:19:33 PM"
+  },
+  {
+    "type": "message",
+    "username": "Niloy",
+    "message": "how are you",
+    "timestamp": "5:19:40 PM"
+  },
+  {
+    "type": "image",
+    "username": "Niloy",
+    "imagePath": "/uploads/1788088788516-838800546.jpg",
+    "timestamp": "5:19:48 PM"
+  },
+  {
+    "type": "system",
+    "message": "Niloy left the chat",
+    "timestamp": "5:23:33 PM"
+  },
+  {
+    "type": "system",
+    "message": "Niloy joined the chat",
+    "timestamp": "5:24:46 PM"
+  },
+  {
+    "type": "message",
+    "username": "Niloy",
+    "message": "hi",
+    "timestamp": "5:24:52 PM"
+  },
+  {
+    "type": "system",
+    "message": "Niloy left the chat",
+    "timestamp": "5:27:36 PM"
+  }
+]

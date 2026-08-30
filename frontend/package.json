@@ -1,0 +1,11 @@
+{
+  "name": "secret-chat-frontend",
+  "version": "1.0.0",
+  "description": "Frontend for Secret Chat App",
+  "scripts": {
+    "dev": "python3 -m http.server 3001"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}

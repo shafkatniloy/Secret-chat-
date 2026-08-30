@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: secret-chat-backend
+    env: node
+    region: oregon
+    plan: free
+    buildCommand: "cd backend && npm install"
+    startCommand: "cd backend && npm start"
+    envVars:
+      - key: PORT
+        value: 3000
+      - key: FRONTEND_URL
+        value: "https://yourdomain.netlify.app"
+        sync: false
+    healthCheckPath: /api/health
