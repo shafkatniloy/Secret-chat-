@@ -24,11 +24,23 @@ const io = new Server(server, {
   }
 });
 
-// Valid users with passwords
-const validUsers = {
-  'Niloy': 'niloy1488',
-  'Mim': 'ohona24'
-};
+// Valid users with passwords from environment variables
+const validUsers = {};
+
+// Load user credentials from environment variables
+if (process.env.USER_1_NAME && process.env.USER_1_PASSWORD) {
+  validUsers[process.env.USER_1_NAME] = process.env.USER_1_PASSWORD;
+}
+if (process.env.USER_2_NAME && process.env.USER_2_PASSWORD) {
+  validUsers[process.env.USER_2_NAME] = process.env.USER_2_PASSWORD;
+}
+
+// Fallback for local development (if env vars not set)
+if (Object.keys(validUsers).length === 0) {
+  console.warn('⚠️  No user credentials found in environment variables. Using default credentials.');
+  validUsers['Niloy'] = 'niloy1488';
+  validUsers['Mim'] = 'ohona24';
+}
 
 // Configure Cloudinary
 cloudinary.config({
