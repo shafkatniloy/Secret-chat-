@@ -14,3 +14,8 @@ messages.json
 # Environment files
 .env*
 !.env.example
+
+# Local-only offline preview (contains test login; never publish)
+frontend/offline-test.html
+frontend/offline-preview.py
+frontend/offline-preview.js

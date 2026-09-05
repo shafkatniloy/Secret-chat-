@@ -1,5 +1,91 @@
 # Changes by Codex
 
+## 2026-09-06 — Icon-only upload control
+
+- Removed the visible Image label, retaining an Upload image accessible name and tooltip on the icon button.
+
+## 2026-09-06 — Custom image button icon
+
+- Replaced the Image button's paperclip emoji with the supplied Lucide link SVG, preserving its 24px size and 3px stroke.
+- Centered the icon and label with spacing; the SVG inherits the button text color and is hidden from screen readers because the Image label identifies the action.
+
+## 2026-09-06 — Blend theme switch with the header
+
+- Changed the theme slider track from black to transparent with a subtle white border, allowing the light/dark header background to show through.
+- Kept the white thumb and monochrome icons for visible switch states.
+
+## 2026-09-06 — Preview the actual frontend without a watcher
+
+- Replaced the copied offline page with a Git-ignored launcher that opens the current `index.html` in local preview mode. Saving the main frontend and refreshing now shows changes immediately, without Python or regeneration.
+- Moved local simulation and test credentials into a separate Git-ignored JavaScript adapter. Preview mode is restricted to local file/loopback addresses; hosted sites always load the real chat client.
+- Local preview blocks connection requests and does not load the Socket.IO CDN. Login stays disabled until the selected adapter loads.
+- Retired the old local generator. The offline launcher and adapter remain excluded from Git.
+- Verified frontend/adapter syntax, launcher routing, local-only activation, hosted-site exclusion, and Git ignore rules. Browser visual verification was unavailable.
+
+## 2026-09-06 — Keep the offline preview in sync
+
+- Added a Git-ignored local preview generator with an optional watch mode. It rebuilds the offline HTML from the current production frontend when that file changes, preserving the local simulation overrides.
+- Preview users refresh the generated page after saving frontend changes. This checks layout and local interactions; production authentication, database persistence, and live messaging still need integration testing.
+- Verified successful regeneration, generated JavaScript syntax, removal of external scripts, and Git exclusion of both local preview files. Neither the helper nor the preview is intended for deployment.
+
+## 2026-09-06 — Local-only offline preview
+
+- Added a Git ignore rule for a separate offline HTML preview. Its test credentials and preview implementation are excluded from commits.
+- Production authentication is unchanged. The local preview simulates chat and image display without remote requests, with a connection-blocking content policy and no Socket.IO CDN dependency.
+- The preview is a snapshot of the current frontend and must be regenerated to include future interface changes. It is not a backend integration test.
+- Verified the ignore rule, inline JavaScript syntax, and network isolation settings. Test credentials are intentionally omitted from this log.
+
+## 2026-09-06 — Compact header controls and offline theme fallback
+
+- Reduced the theme switch to 60 × 32px with 16px monochrome icons and a 24px sliding thumb.
+- Right-aligned the account controls and switch even when theme status text wraps onto its own line.
+- Added browser-local theme caching keyed by username, with no passwords stored. Local file previews skip preference API requests and explain that sync is unavailable.
+- Theme changes remain applied when cloud saving fails. Pending browser preferences are retried on the next login/reconnection; successful cloud loads/saves update the local cache.
+- If browser storage is unavailable, the interface explains that the theme is only applied for the current session.
+- Verified frontend syntax, offline switching, separate-user caching, restoration, pending sync retry, and diff whitespace. Browser visual checks were unavailable.
+- Cross-device theme persistence still requires deploying the pending backend preference endpoints and using an allowed HTTP(S) frontend origin.
+
+## 2026-09-06 — Separate monochrome theme slider
+
+- Moved the appearance control after Logout, separated from the username/logout group by spacing and a divider.
+- Replaced the text/emoji control with a pill switch, sliding white thumb, and black/white SVG sun and moon icons.
+- Preserved per-user preference saving, keyboard operation, accessible switch state, disabled state during saves, and visible focus styling. Respects reduced-motion preferences.
+- Verified frontend syntax and that switching themes updates the slider state without replacing its icons.
+
+## 2026-09-06 — Persistent header and individual appearance preferences
+
+- Made the chat header sticky within the chat container; the message list scrolls independently. Header controls wrap on small screens.
+- Renamed the chat header and browser title to `আমাদের কথা`.
+- Added an accessible light/dark switch and dark colors for the chat, message bubbles, inputs, and notices.
+- Added authenticated GET/PUT `/api/preferences` endpoints backed by a MongoDB user preference collection. Each preference is keyed by the authenticated username, never a client-supplied username.
+- Load each user's theme on login/reconnection, save changes across devices, reset appearance on logout, and ignore stale responses from previous sessions. Failed saves restore the previous theme and show an error in the header.
+- Verified authentication, independent preferences for two users, rejected invalid themes, database error handling, frontend save success/failure behavior, JavaScript syntax, and existing authentication tests. Live database and browser visual verification were not performed.
+- Deployment requires both the backend and frontend updates. No new environment variables are required.
+
+## 2026-09-06 — Use compact message bubbles
+
+- Text and image messages now fit their content, capped at 75% of the message area or 560px on larger screens and 88% on narrow phones.
+- Own messages align right with a light purple background; incoming messages align left. Join/leave notices are compact and centered with a 480px maximum width.
+- Prevented bubbles from shrinking vertically in the scrollable message list and retained wrapping for long content.
+- Restored the current username on socket reconnection so message alignment remains correct after reconnecting.
+- Verified frontend JavaScript syntax and rendering classes for own, incoming, image, and system messages. Browser visual verification remains unavailable.
+
+## 2026-09-06 — Fix responsive login and chat layout
+
+- Fixed the login card becoming a horizontal row after logout or socket disconnection by explicitly setting its flex direction to column.
+- Replaced the login lock emoji and visible title with the supplied logo, retaining an accessible image label.
+- Kept the login card at a consistent maximum width on desktop and mobile, with internal scrolling for short viewports and inputs that fit its width.
+- Used the dynamic viewport height and sized the chat inside the body's padding to prevent vertical overflow. Limited desktop chat width and rounded its container.
+- Allowed long headers and timestamps to wrap, and placed the composer input above its buttons on narrow phones. Mobile input text uses 16px sizing.
+- JavaScript syntax, logo reference, login layout rules, and diff whitespace checks passed. Browser visual verification was unavailable in this session.
+
+## 2026-09-06 — Add custom favicon and chat header logo
+
+- Linked the supplied `frontend/assets/favicon.png` as the browser tab icon.
+- Replaced the chat header's speech-bubble emoji with the supplied `frontend/assets/logo.png`, displayed at 40 × 40 pixels without stretching.
+- Kept the existing Secret Chat title and used an empty image alt attribute to avoid repeating the adjacent title for screen readers.
+- Verified both local PNG assets and their HTML references. Deploy the frontend to publish these changes.
+
 ## 2026-09-06 — Authenticate chat history and image uploads
 
 ### Changes

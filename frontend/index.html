@@ -3,14 +3,16 @@
   <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Secret Chat</title>
+    <title>আমাদের কথা</title>
+    <link rel="icon" type="image/png" href="assets/favicon.png">
     <style>
       * { margin: 0; padding: 0; box-sizing: border-box; }
       
       body { 
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        height: 100vh; 
+        height: 100vh;
+        height: 100dvh;
         display: flex; 
         justify-content: center; 
         align-items: center;
@@ -18,6 +20,11 @@
       }
       
       .login-container {
+        display: flex;
+        flex-direction: column;
+        flex-shrink: 0;
+        max-height: 100%;
+        overflow-y: auto;
         background: white;
         padding: 50px 40px;
         border-radius: 16px;
@@ -45,6 +52,13 @@
         font-size: 32px;
         font-weight: 700;
       }
+
+      .login-logo {
+        display: block;
+        width: clamp(112px, 24vw, 160px);
+        height: auto;
+        margin: 0 auto;
+      }
       
       .login-subtitle {
         text-align: center;
@@ -59,11 +73,13 @@
       }
       
       .login-container input {
+        width: 100%;
+        min-width: 0;
         padding: 14px 16px;
         margin-bottom: 15px;
         border: 2px solid #e2e8f0;
         border-radius: 8px;
-        font-size: 15px;
+        font-size: 16px;
         transition: all 0.3s;
         font-family: inherit;
       }
@@ -109,18 +125,27 @@
       .chat-container {
         display: flex;
         flex-direction: column;
-        height: 100vh;
+        height: 100%;
+        min-height: 0;
+        max-width: 1100px;
+        overflow: hidden;
+        border-radius: 16px;
         width: 100%;
         background: #f7fafc;
       }
       
       .chat-header {
+        position: sticky;
+        top: 0;
+        z-index: 2;
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         color: white;
         padding: 16px 20px;
         display: flex;
         justify-content: space-between;
         align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
         flex-shrink: 0;
       }
@@ -128,6 +153,16 @@
       .chat-header h1 {
         font-size: 20px;
         font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .chat-logo {
+        width: 40px;
+        height: 40px;
+        object-fit: contain;
+        flex-shrink: 0;
       }
       
       .chat-header-right {
@@ -137,6 +172,7 @@
       }
       
       #currentUser {
+        overflow-wrap: anywhere;
         font-size: 13px;
         opacity: 0.9;
       }
@@ -158,6 +194,7 @@
       }
       
       #messages {
+        min-height: 0;
         list-style-type: none;
         flex-grow: 1;
         overflow-y: auto;
@@ -185,11 +222,27 @@
       }
       
       #messages li {
+        align-self: flex-start;
+        width: fit-content;
+        max-width: min(75%, 560px);
+        flex-shrink: 0;
+        min-width: 0;
+        overflow-wrap: anywhere;
         padding: 14px;
         background: white;
         border-radius: 10px;
         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
         animation: messageSlideIn 0.3s ease-out;
+      }
+
+      #messages li.own-message {
+        align-self: flex-end;
+        background: #e8eaff;
+        border-bottom-right-radius: 3px;
+      }
+
+      #messages li.incoming-message {
+        border-bottom-left-radius: 3px;
       }
       
       @keyframes messageSlideIn {
@@ -204,6 +257,9 @@
       }
       
       #messages li.system {
+        align-self: center;
+        max-width: min(90%, 480px);
+        box-shadow: none;
         background: linear-gradient(135deg, #e0e7ff 0%, #f3e8ff 100%);
         color: #5a4a9e;
         font-style: italic;
@@ -213,6 +269,8 @@
       }
       
       .message-header {
+        flex-wrap: wrap;
+        gap: 4px 12px;
         font-weight: 600;
         color: #667eea;
         font-size: 13px;
@@ -243,6 +301,7 @@
       }
       
       #input {
+        min-width: 0;
         flex-grow: 1;
         padding: 12px 14px;
         border-radius: 8px;
@@ -281,6 +340,10 @@
       }
       
       .upload-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
         background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
       }
       
@@ -296,7 +359,7 @@
         
         .login-container {
           padding: 40px 30px;
-          max-width: 100%;
+          max-width: 380px;
         }
         
         .login-container h1 {
@@ -336,7 +399,7 @@
         
         #input {
           padding: 10px 12px;
-          font-size: 13px;
+          font-size: 16px;
         }
         
         #form button {
@@ -346,6 +409,22 @@
       }
       
       @media (max-width: 480px) {
+        #messages li {
+          max-width: 88%;
+        }
+        #form {
+          flex-wrap: wrap;
+        }
+
+        #input {
+          flex-basis: 100%;
+          width: 100%;
+        }
+
+        #form button {
+          flex: 1;
+          min-height: 44px;
+        }
         .login-container {
           padding: 35px 20px;
         }
@@ -373,12 +452,64 @@
           max-height: 200px;
         }
       }
+      .theme-toggle {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+        justify-content: space-around;
+        width: 60px;
+        height: 32px;
+        padding: 3px;
+        border: 1px solid rgba(255, 255, 255, 0.4);
+        border-radius: 999px;
+        background: transparent;
+        cursor: pointer;
+        flex-shrink: 0;
+      }
+      .theme-toggle::before {
+        content: '';
+        position: absolute;
+        left: 3px;
+        top: 3px;
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        background: #fff;
+        transition: transform 180ms ease;
+      }
+      .theme-toggle[aria-checked="true"]::before { transform: translateX(28px); }
+      .theme-toggle svg { position: relative; width: 16px; height: 16px; color: #fff; }
+      .theme-toggle[aria-checked="false"] .sun-icon,
+      .theme-toggle[aria-checked="true"] .moon-icon { color: #000; }
+      .theme-toggle:focus-visible { outline: 2px solid #fff; outline-offset: 4px; }
+      .theme-control { display: flex; padding-left: 10px; border-left: 1px solid rgba(255, 255, 255, 0.4); }
+      .account-controls { display: flex; align-items: center; gap: 10px; min-width: 0; }
+      @media (prefers-reduced-motion: reduce) { .theme-toggle::before { transition: none; } }
+      .theme-toggle:disabled { opacity: 0.6; cursor: wait; }
+      .chat-header-right { flex-wrap: wrap; margin-left: auto; justify-content: flex-end; max-width: 100%; }
+      #themeStatus { flex-basis: 100%; font-size: 12px; text-align: right; }
+      #themeStatus:empty { display: none; }
+      body[data-theme="dark"] { background: #0b1020; color: #e2e8f0; }
+      body[data-theme="dark"] .login-container,
+      body[data-theme="dark"] #form { background: #182235; }
+      body[data-theme="dark"] .chat-container { background: #101827; }
+      body[data-theme="dark"] .chat-header { background: linear-gradient(135deg, #303977, #49316b); }
+      body[data-theme="dark"] #messages li { background: #233047; color: #e2e8f0; }
+      body[data-theme="dark"] #messages li.own-message { background: #37366b; }
+      body[data-theme="dark"] #messages li.system { background: #28243e; color: #d4c7f5; }
+      body[data-theme="dark"] .message-text { color: #edf2f7; }
+      body[data-theme="dark"] .message-header { color: #bdc6ff; }
+      body[data-theme="dark"] .message-time,
+      body[data-theme="dark"] .login-subtitle { color: #b2bed0; }
+      body[data-theme="dark"] input { background: #101827; color: #edf2f7; border-color: #485775; }
+      body[data-theme="dark"] input::placeholder { color: #a6b4c9; }
+      body[data-theme="dark"] #form { border-color: #334155; }
     </style>
   </head>
   <body>
     <!-- Login Screen -->
     <div id="loginScreen" class="login-container">
-      <h1>🔒 Secret Chat</h1>
+      <h1><img class="login-logo" src="assets/logo.png" alt="Secret Chat" width="160" height="160"></h1>
       <p class="login-subtitle">Private and secure messaging</p>
       <div id="errorMessage" class="error" style="display: none;"></div>
       <form id="loginForm" onsubmit="handleLogin(event)">
@@ -403,10 +534,19 @@
     <!-- Chat Screen (hidden initially) -->
     <div id="chatScreen" class="chat-container" style="display: none;">
       <div class="chat-header">
-        <h1>💬 Secret Chat</h1>
+        <h1><img class="chat-logo" src="assets/logo.png" alt="" width="40" height="40"><span lang="bn">আমাদের কথা</span></h1>
         <div class="chat-header-right">
+          <div class="account-controls">
           <span id="currentUser"></span>
           <button class="logout-btn" onclick="handleLogout()">Logout</button>
+          </div>
+          <div class="theme-control">
+            <button id="themeToggle" class="theme-toggle" type="button" role="switch" aria-checked="false" aria-label="Dark mode" onclick="toggleTheme()">
+              <svg class="sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5"/></svg>
+              <svg class="moon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20 15.5A9 9 0 0 1 8.5 4a9 9 0 1 0 11.5 11.5Z"/></svg>
+            </button>
+          </div>
+          <span id="themeStatus" role="status" aria-live="polite"></span>
         </div>
       </div>
       <ul id="messages"></ul>
@@ -414,11 +554,10 @@
         <input id="input" placeholder="Type a message..." autocomplete="off" />
         <input type="file" id="fileInput" accept="image/*,.gif" style="display: none;" onchange="handleFileUpload(event)" />
         <button type="submit">Send</button>
-        <button type="button" class="upload-btn" onclick="document.getElementById('fileInput').click()">📎 Image</button>
+        <button type="button" class="upload-btn" aria-label="Upload image" title="Upload image" onclick="document.getElementById('fileInput').click()"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-link" aria-hidden="true" focusable="false"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></button>
       </form>
     </div>
 
-    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
     <script>
       // Get backend URL from environment or use default
       const BACKEND_URL = window.location.hostname === 'localhost' 
@@ -427,6 +566,92 @@
 
       let socket = null;
       let currentUsername = null;
+      let themeSession = 0;
+
+      function applyTheme(theme) {
+        document.body.dataset.theme = theme;
+        const button = document.getElementById('themeToggle');
+        button.setAttribute('aria-checked', String(theme === 'dark'));
+      }
+
+      function readLocalTheme(username) {
+        try {
+          const saved = JSON.parse(localStorage.getItem('chat-theme:' + username));
+          return saved && ['light', 'dark'].includes(saved.theme) ? saved : null;
+        } catch (err) { return null; }
+      }
+
+      function saveLocalTheme(username, theme, pending) {
+        try {
+          localStorage.setItem('chat-theme:' + username, JSON.stringify({ theme, pending }));
+          return true;
+        } catch (err) { return false; }
+      }
+
+      async function preferenceRequest(connection, options = {}) {
+        if (window.location.protocol === 'file:') throw new Error('Local file preview');
+        const bytes = new TextEncoder().encode(`${connection.auth.username}:${connection.auth.password}`);
+        const authorization = 'Basic ' + btoa(Array.from(bytes, byte => String.fromCharCode(byte)).join(''));
+        const response = await fetch(BACKEND_URL + '/api/preferences', {
+          ...options,
+          headers: { Authorization: authorization, 'Content-Type': 'application/json' },
+          cache: 'no-store'
+        });
+        if (!response.ok) throw new Error('Appearance preference request failed');
+        return response.json();
+      }
+
+      async function loadTheme() {
+        const session = ++themeSession;
+        const username = currentUsername;
+        const saved = readLocalTheme(username);
+        applyTheme(saved?.theme || 'light');
+        const button = document.getElementById('themeToggle');
+        button.disabled = true;
+        document.getElementById('themeStatus').textContent = '';
+        try {
+          const preference = await preferenceRequest(socket, saved?.pending
+            ? { method: 'PUT', body: JSON.stringify({ theme: saved.theme }) } : {});
+          if (session === themeSession) {
+            const theme = preference.theme === 'dark' ? 'dark' : 'light';
+            applyTheme(theme);
+            saveLocalTheme(username, theme, false);
+          }
+        } catch (err) {
+          if (session === themeSession) document.getElementById('themeStatus').textContent =
+            window.location.protocol === 'file:' ? 'Local preview · theme sync unavailable' : 'Theme sync unavailable · using this browser’s setting';
+        } finally {
+          if (session === themeSession) button.disabled = false;
+        }
+      }
+
+      async function toggleTheme() {
+        const button = document.getElementById('themeToggle');
+        if (!socket?.connected || button.disabled) return;
+        const session = themeSession;
+        const username = currentUsername;
+        const previous = document.body.dataset.theme || 'light';
+        const theme = previous === 'dark' ? 'light' : 'dark';
+        applyTheme(theme);
+        const stored = saveLocalTheme(username, theme, true);
+        button.disabled = true;
+        document.getElementById('themeStatus').textContent = 'Saving theme…';
+        try {
+          await preferenceRequest(socket, { method: 'PUT', body: JSON.stringify({ theme }) });
+          if (session === themeSession) {
+            saveLocalTheme(username, theme, false);
+            document.getElementById('themeStatus').textContent = '';
+          }
+        } catch (err) {
+          if (session === themeSession) {
+            document.getElementById('themeStatus').textContent = stored
+              ? 'Theme saved in this browser · sync pending'
+              : 'Theme applied for this session · could not save';
+          }
+        } finally {
+          if (session === themeSession) button.disabled = false;
+        }
+      }
       
       // Function to scroll messages to bottom
       function scrollToBottom() {
@@ -471,6 +696,8 @@
         });
 
         socket.on('connect', () => {
+          currentUsername = username;
+          loadTheme();
           // Hide login, show chat
           document.getElementById('loginScreen').style.display = 'none';
           document.getElementById('chatScreen').style.display = 'flex';
@@ -523,6 +750,8 @@
         });
 
         socket.on('disconnect', () => {
+          ++themeSession;
+          applyTheme('light');
           document.getElementById('loginScreen').style.display = 'flex';
           document.getElementById('chatScreen').style.display = 'none';
           document.getElementById('usernameInput').value = '';
@@ -615,6 +844,7 @@
 
       function displayMessage(data) {
         const item = document.createElement('li');
+        item.className = data.username === currentUsername ? 'own-message' : 'incoming-message';
         item.innerHTML = `
           <div class="message-header">
             <span>${escapeHtml(data.username)}</span>
@@ -627,6 +857,7 @@
 
       function displayImageMessage(data) {
         const item = document.createElement('li');
+        item.className = data.username === currentUsername ? 'own-message' : 'incoming-message';
         item.innerHTML = `
           <div class="message-header">
             <span>${escapeHtml(data.username)}</span>
@@ -660,6 +891,8 @@
       }
 
       function handleLogout() {
+        ++themeSession;
+        applyTheme('light');
         if (socket) {
           socket.removeAllListeners();
           socket.disconnect();
@@ -687,6 +920,27 @@
       window.addEventListener('load', () => {
         document.getElementById('usernameInput').focus();
       });
+
+      // A local preview can use an ignored adapter while sharing this exact page.
+      const localPreview = (window.location.protocol === 'file:' ||
+        ['localhost', '127.0.0.1', '[::1]'].includes(window.location.hostname)) &&
+        new URLSearchParams(window.location.search).get('offline-preview') === '1';
+      const loginButton = document.querySelector('#loginForm button');
+      loginButton.disabled = true;
+      if (localPreview) {
+        const policy = document.createElement('meta');
+        policy.httpEquiv = 'Content-Security-Policy';
+        policy.content = "connect-src 'none'";
+        document.head.appendChild(policy);
+        document.title = 'Offline preview — আমাদের কথা';
+      }
+      const chatAdapter = document.createElement('script');
+      chatAdapter.src = localPreview ? 'offline-preview.js' : 'https://cdn.socket.io/4.5.4/socket.io.min.js';
+      chatAdapter.onload = () => { loginButton.disabled = false; };
+      chatAdapter.onerror = () => showError(localPreview
+        ? 'The local preview adapter is missing. Keep offline-preview.js in this folder.'
+        : 'Could not load chat. Refresh the page to retry.');
+      document.body.appendChild(chatAdapter);
     </script>
   </body>
 </html>

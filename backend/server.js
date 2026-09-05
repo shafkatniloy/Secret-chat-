@@ -74,6 +74,10 @@ const messageSchema = new mongoose.Schema({
 });
 
 const Message = mongoose.model('Message', messageSchema);
+const UserPreference = mongoose.model('UserPreference', new mongoose.Schema({
+  username: { type: String, required: true, unique: true },
+  theme: { type: String, enum: ['light', 'dark'], default: 'light' }
+}));
 
 // Setup multer with Cloudinary storage
 const storage = new CloudinaryStorage({
@@ -169,6 +173,33 @@ app.get('/api/messages', requireAuth, async (req, res) => {
     res.json(messages.reverse());
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+// Health check endpoint
+app.get('/api/preferences', requireAuth, async (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  try {
+    const preference = await UserPreference.findOne({ username: req.username });
+    res.json({ theme: preference?.theme || 'light' });
+  } catch (err) {
+    res.status(500).json({ error: 'Could not load appearance preference' });
+  }
+});
+
+app.put('/api/preferences', requireAuth, async (req, res) => {
+  const theme = req.body?.theme;
+  if (!['light', 'dark'].includes(theme)) {
+    return res.status(400).json({ error: 'Theme must be light or dark' });
+  }
+  try {
+    await UserPreference.findOneAndUpdate(
+      { username: req.username }, { $set: { theme } },
+      { upsert: true, runValidators: true }
+    );
+    res.json({ theme });
+  } catch (err) {
+    res.status(500).json({ error: 'Could not save appearance preference' });
   }
 });
 
