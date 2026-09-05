@@ -85,3 +85,4 @@ secret-chat/
 - `877e4e1` - Fixed message timestamps to use Dhaka timezone (`Asia/Dhaka`).
 - `34afb83` - Resolved message persistence bug on logout by fetching newest messages and removing system spam.
 - `21a2082` - Added active session tracking with timestamped join and leave events for both users.
+

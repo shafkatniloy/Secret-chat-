@@ -14,13 +14,16 @@ FRONTEND_URL=http://localhost:3001
 
 # Production (Netlify):
 # FRONTEND_URL=https://your-app-name.netlify.app
+
+# Multiple frontends (comma-separated origins, without paths):
+# FRONTEND_URL=https://your-app-name.netlify.app,https://your-worker.workers.dev
 ```
 
 ## Frontend (frontend/index.html)
 
 The frontend automatically detects the backend URL:
 - **Local**: Uses `http://localhost:3000`
-- **Production**: Uses the same domain as frontend (e.g., Netlify domain)
+- **Production**: Uses the Render backend URL configured in `frontend/index.html`.
 
 You can manually set it in `frontend/index.html` around line 140:
 

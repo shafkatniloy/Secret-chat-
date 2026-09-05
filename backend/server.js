@@ -12,13 +12,16 @@ require('dotenv').config();
 const app = express();
 const server = http.createServer(app);
 
-// Get frontend URL and MongoDB URI from environment variables
-const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3001';
+// Accept one frontend origin or a comma-separated list for both CORS configurations.
+const FRONTEND_URLS = (process.env.FRONTEND_URL || 'http://localhost:3001')
+  .split(',')
+  .map(url => url.trim().replace(/\/+$/, ''))
+  .filter(Boolean);
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/secret-chat';
 
 const io = new Server(server, {
   cors: {
-    origin: FRONTEND_URL,
+    origin: FRONTEND_URLS,
     methods: ['GET', 'POST'],
     allowedHeaders: ['Content-Type'],
     credentials: true
@@ -100,7 +103,7 @@ const upload = multer({
 
 // Middleware
 app.use(cors({
-  origin: FRONTEND_URL,
+  origin: FRONTEND_URLS,
   credentials: true
 }));
 app.use(express.urlencoded({ extended: false }));
@@ -316,6 +319,6 @@ io.on('connection', async (socket) => {
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
   console.log(`Chat backend is ready on port ${PORT}`);
-  console.log(`Frontend URL: ${FRONTEND_URL}`);
+  console.log(`Frontend URLs: ${FRONTEND_URLS.join(', ')}`);
   console.log(`Database: ${MONGODB_URI}`);
 });

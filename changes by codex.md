@@ -28,3 +28,20 @@
 This update protects the two HTTP routes. It is not a complete security audit or a claim that all security issues have been resolved.
 
 This log contains no passwords, tokens, connection strings, environment variable values, or private chat data. Keep future entries free of those values as well.
+
+## 2026-09-06 — Support multiple frontend origins
+
+- Updated `backend/server.js` to accept a comma-separated list in `FRONTEND_URL` for both Express and Socket.IO CORS.
+- Preserved support for a single URL and the localhost default. Whitespace, trailing slashes, and empty list entries are removed.
+- Updated `ENV_VARIABLES.md` with multiple-origin configuration and corrected the production backend URL description.
+- Verified that both configured origins receive CORS access, an unrelated origin does not, and HTTP upload preflight permits the Authorization header. Checked single-origin and local defaults as well.
+- Backend syntax and existing authentication tests passed. Live hosted integration was not tested.
+- Deployment: push this update, set the comma-separated frontend origins in Render, and redeploy the backend. No frontend changes are required for this update.
+
+## 2026-09-06 — Show the day alongside message times
+
+- Updated the shared frontend timestamp formatter for text, image, and system messages to display `Today, 12:10 AM`, `Yesterday, 11:59 PM`, or a date such as `3 Sept 2026, 12:00 PM`.
+- Both day labels and times use Asia/Dhaka, regardless of the device timezone. Labels are calculated when messages are rendered.
+- Older messages without a valid creation date retain their existing timestamp rather than showing an invented date.
+- Verified frontend syntax, today/yesterday/older dates, Dhaka midnight, a year boundary, and missing or invalid dates. Backend syntax and authentication tests also passed.
+- Deploy the frontend to display these labels. The pending multiple-origin update also requires deploying the backend and configuring Render's `FRONTEND_URL`.

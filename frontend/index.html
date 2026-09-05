@@ -583,15 +583,29 @@
         });
       }
 
-      function formatDhakaTime(data) {
+      function formatDhakaTime(data, now = new Date()) {
         if (data.createdAt) {
           try {
-            return new Date(data.createdAt).toLocaleTimeString('en-US', {
+            const date = new Date(data.createdAt);
+            if (Number.isNaN(date.getTime())) return data.timestamp || '';
+            const dayFormatter = new Intl.DateTimeFormat('en-CA', {
+              timeZone: 'Asia/Dhaka', year: 'numeric', month: '2-digit', day: '2-digit'
+            });
+            const messageDay = dayFormatter.format(date);
+            const today = dayFormatter.format(now);
+            const yesterday = dayFormatter.format(new Date(now.getTime() - 86400000));
+            const dayLabel = messageDay === today ? 'Today'
+              : messageDay === yesterday ? 'Yesterday'
+              : date.toLocaleDateString('en-GB', {
+                timeZone: 'Asia/Dhaka', day: 'numeric', month: 'short', year: 'numeric'
+              });
+            const time = date.toLocaleTimeString('en-US', {
               timeZone: 'Asia/Dhaka',
               hour: 'numeric',
               minute: '2-digit',
               hour12: true
             });
+            return `${dayLabel}, ${time}`;
           } catch (e) {
             console.error('Error formatting time:', e);
           }
