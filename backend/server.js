@@ -6,6 +6,7 @@ const cloudinary = require('cloudinary').v2;
 const { CloudinaryStorage } = require('multer-storage-cloudinary');
 const multer = require('multer');
 const cors = require('cors');
+const { createAuth } = require('./auth');
 require('dotenv').config();
 
 const app = express();
@@ -41,6 +42,8 @@ if (Object.keys(validUsers).length === 0) {
   validUsers['Niloy'] = 'niloy1488';
   validUsers['Mim'] = 'ohona24';
 }
+
+const { isValidUser, requireAuth } = createAuth(validUsers);
 
 // Configure Cloudinary
 cloudinary.config({
@@ -125,7 +128,7 @@ mongoose.connect(MONGODB_URI, {
 });
 
 // File upload endpoint
-app.post('/api/upload', upload.single('file'), (req, res) => {
+app.post('/api/upload', requireAuth, upload.single('file'), (req, res) => {
   if (!req.file) {
     console.error('❌ Upload failed: No file received');
     return res.status(400).json({ error: 'No file uploaded' });
@@ -155,7 +158,7 @@ app.use((err, req, res, next) => {
 });
 
 // Get chat history endpoint
-app.get('/api/messages', async (req, res) => {
+app.get('/api/messages', requireAuth, async (req, res) => {
   try {
     const messages = await Message.find()
       .sort({ createdAt: -1 })
@@ -180,7 +183,7 @@ io.use((socket, next) => {
     return next(new Error('Unauthorized'));
   }
   
-  if (!validUsers[username] || validUsers[username] !== password) {
+  if (!isValidUser(username, password)) {
     return next(new Error('Unauthorized'));
   }
   

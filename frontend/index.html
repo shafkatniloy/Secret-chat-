@@ -543,12 +543,26 @@
       function handleFileUpload(event) {
         const file = event.target.files[0];
         if (!file) return;
+        if (!socket || !socket.connected) {
+          showError('Please log in before uploading an image.');
+          event.target.value = '';
+          return;
+        }
+
+        // Keep credentials in memory and send them only over HTTPS in production.
+        const credentials = new TextEncoder().encode(
+          `${socket.auth.username}:${socket.auth.password}`
+        );
+        const authorization = 'Basic ' + btoa(
+          Array.from(credentials, byte => String.fromCharCode(byte)).join('')
+        );
 
         const formData = new FormData();
         formData.append('file', file);
 
         fetch(BACKEND_URL + '/api/upload', {
           method: 'POST',
+          headers: { Authorization: authorization },
           body: formData
         })
         .then(res => res.json())
