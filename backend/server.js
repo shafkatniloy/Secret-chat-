@@ -7,6 +7,7 @@ const { CloudinaryStorage } = require('multer-storage-cloudinary');
 const multer = require('multer');
 const cors = require('cors');
 const { createAuth } = require('./auth');
+const { isTrustedImageUrl, safeHistoryMessage, resolveImageUpload } = require('./image-security');
 require('dotenv').config();
 
 const app = express();
@@ -74,6 +75,14 @@ const messageSchema = new mongoose.Schema({
 });
 
 const Message = mongoose.model('Message', messageSchema);
+const ImageUpload = mongoose.model('ImageUpload', new mongoose.Schema({
+  username: { type: String, required: true },
+  url: { type: String, required: true },
+  publicId: { type: String, required: true },
+  createdAt: { type: Date, default: Date.now }
+}));
+const safeHistory = messages => messages.map(message =>
+  safeHistoryMessage(message, process.env.CLOUDINARY_CLOUD_NAME));
 const UserPreference = mongoose.model('UserPreference', new mongoose.Schema({
   username: { type: String, required: true, unique: true },
   theme: { type: String, enum: ['light', 'dark'], default: 'light' }
@@ -84,7 +93,7 @@ const storage = new CloudinaryStorage({
   cloudinary: cloudinary,
   params: {
     folder: 'secret-chat',
-    resource_type: 'auto',
+    resource_type: 'image',
     format: async (req, file) => 'jpg',
     public_id: (req, file) => {
       return Date.now() + '-' + Math.round(Math.random() * 1E9);
@@ -135,24 +144,28 @@ mongoose.connect(MONGODB_URI, {
 });
 
 // File upload endpoint
-app.post('/api/upload', requireAuth, upload.single('file'), (req, res) => {
+app.post('/api/upload', requireAuth, upload.single('file'), async (req, res) => {
   if (!req.file) {
     console.error('❌ Upload failed: No file received');
     return res.status(400).json({ error: 'No file uploaded' });
   }
   
-  console.log('✅ File uploaded to Cloudinary:', {
-    filename: req.file.filename,
-    path: req.file.path,
-    publicId: req.file.public_id
-  });
-  
-  res.json({
-    filename: req.file.filename,
-    path: req.file.path,
-    publicId: req.file.public_id,
-    mimetype: req.file.mimetype
-  });
+  try {
+    if (!isTrustedImageUrl(req.file.path, process.env.CLOUDINARY_CLOUD_NAME)) {
+      throw new Error('Unexpected image URL');
+    }
+    const uploaded = await ImageUpload.create({
+      username: req.username,
+      url: req.file.path,
+      publicId: req.file.filename
+    });
+    res.json({ uploadId: uploaded._id.toString() });
+  } catch (err) {
+    // Do not leave a billed asset behind when recording its ownership fails.
+    try { await cloudinary.uploader.destroy(req.file.filename); }
+    catch { console.error('Could not clean up an unrecorded image upload'); }
+    res.status(500).json({ error: 'Could not register image upload. Please try again.' });
+  }
 });
 
 // Error handler for upload
@@ -170,7 +183,7 @@ app.get('/api/messages', requireAuth, async (req, res) => {
     const messages = await Message.find()
       .sort({ createdAt: -1 })
       .limit(200);
-    res.json(messages.reverse());
+    res.json(safeHistory(messages.reverse()));
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -255,7 +268,7 @@ io.on('connection', async (socket) => {
     const messages = await Message.find()
       .sort({ createdAt: -1 })
       .limit(200);
-    socket.emit('load messages', messages.reverse());
+    socket.emit('load messages', safeHistory(messages.reverse()));
   } catch (err) {
     console.error('❌ Error loading messages:', err.message);
   }
@@ -297,13 +310,13 @@ io.on('connection', async (socket) => {
     }
   });
 
-  socket.on('image message', async (data) => {
+  socket.on('image message', async (data, acknowledge) => {
     try {
+      const verified = await resolveImageUpload(ImageUpload, socket.username, data, process.env.CLOUDINARY_CLOUD_NAME);
       const messageData = new Message({
         type: 'image',
         username: socket.username,
-        imagePath: data.imagePath,
-        imagePublicId: data.publicId,
+        ...verified,
         timestamp: getDhakaTime()
       });
       
@@ -313,8 +326,10 @@ io.on('connection', async (socket) => {
       socket.emit('image message', messageData);
       // Broadcast to all other users
       socket.broadcast.emit('image message', messageData);
+      if (typeof acknowledge === 'function') acknowledge({ ok: true });
     } catch (err) {
       console.error('❌ Error saving image message:', err.message);
+      if (typeof acknowledge === 'function') acknowledge({ error: 'Image could not be sent. Upload it again and retry.' });
     }
   });
 

@@ -413,16 +413,16 @@
           max-width: 88%;
         }
         #form {
-          flex-wrap: wrap;
+          flex-wrap: nowrap;
         }
 
         #input {
-          flex-basis: 100%;
-          width: 100%;
+          flex: 1 1 0;
+          width: 0;
         }
 
         #form button {
-          flex: 1;
+          flex: 0 0 auto;
           min-height: 44px;
         }
         .login-container {
@@ -504,6 +504,32 @@
       body[data-theme="dark"] input { background: #101827; color: #edf2f7; border-color: #485775; }
       body[data-theme="dark"] input::placeholder { color: #a6b4c9; }
       body[data-theme="dark"] #form { border-color: #334155; }
+
+      @media (max-width: 768px) {
+        .chat-header { flex-wrap: nowrap; gap: 6px; padding: 10px 8px; }
+        .chat-header h1 { flex: 1 1 auto; min-width: 0; gap: 5px; font-size: 14px; }
+        .chat-header h1 span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .chat-logo { width: 28px; height: 28px; }
+        .chat-header-right { flex: 0 0 auto; flex-wrap: nowrap; gap: 6px; }
+        .account-controls { gap: 5px; }
+        #currentUser { max-width: 48px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; }
+        .logout-btn { padding: 7px 6px; font-size: 11px; white-space: nowrap; }
+        .theme-control { padding-left: 6px; }
+        .theme-toggle { width: 48px; height: 28px; padding: 3px; }
+        .theme-toggle::before { width: 20px; height: 20px; }
+        .theme-toggle[aria-checked="true"]::before { transform: translateX(20px); }
+        .theme-toggle svg { width: 14px; height: 14px; }
+        #themeStatus {
+          position: absolute; top: calc(100% + 4px); right: 8px;
+          max-width: calc(100% - 16px); padding: 5px 8px;
+          background: #303977; color: #fff; border-radius: 6px;
+          font-size: 10px; pointer-events: none;
+        }
+        #form { flex-wrap: nowrap; padding: 10px 8px; gap: 6px; }
+        #input { flex: 1 1 0; width: 0; min-width: 0; padding: 10px 8px; }
+        #form button { flex: 0 0 auto; padding: 10px; min-height: 44px; }
+        #form .upload-btn svg { width: 20px; height: 20px; }
+      }
     </style>
   </head>
   <body>
@@ -549,6 +575,7 @@
           <span id="themeStatus" role="status" aria-live="polite"></span>
         </div>
       </div>
+      <div id="chatError" class="error" role="alert" style="display: none; margin: 8px 12px 0; flex-shrink: 0;"></div>
       <ul id="messages"></ul>
       <form id="form" onsubmit="handleSendMessage(event)">
         <input id="input" placeholder="Type a message..." autocomplete="off" />
@@ -788,20 +815,29 @@
 
         const formData = new FormData();
         formData.append('file', file);
+        const uploadSocket = socket;
+        const uploadSession = themeSession;
 
         fetch(BACKEND_URL + '/api/upload', {
           method: 'POST',
           headers: { Authorization: authorization },
           body: formData
         })
-        .then(res => res.json())
+        .then(async res => {
+          const result = await res.json();
+          if (!res.ok) throw new Error(result.error || 'Upload failed');
+          return result;
+        })
         .then(data => {
+          if (socket !== uploadSocket || themeSession !== uploadSession || !uploadSocket.connected) return;
           if (data.error) {
             showError(data.error);
           } else {
-            socket.emit('image message', {
-              imagePath: data.path,
-              filename: data.filename
+            uploadSocket.timeout(15000).emit('image message', { uploadId: data.uploadId }, (err, result) => {
+              if (socket !== uploadSocket || themeSession !== uploadSession) return;
+              if (err || !result?.ok) {
+                showError(result?.error || 'Image delivery was not confirmed. Check the chat before retrying.');
+              }
             });
           }
           document.getElementById('fileInput').value = '';
@@ -842,46 +878,81 @@
         return data.timestamp || '';
       }
 
+      function messageHeader(data) {
+        const header = document.createElement('div');
+        header.className = 'message-header';
+        const name = document.createElement('span');
+        name.textContent = data.username || '';
+        const time = document.createElement('span');
+        time.className = 'message-time';
+        time.textContent = formatDhakaTime(data);
+        header.append(name, time);
+        return header;
+      }
+
       function displayMessage(data) {
         const item = document.createElement('li');
         item.className = data.username === currentUsername ? 'own-message' : 'incoming-message';
-        item.innerHTML = `
-          <div class="message-header">
-            <span>${escapeHtml(data.username)}</span>
-            <span class="message-time">${formatDhakaTime(data)}</span>
-          </div>
-          <div class="message-text">${escapeHtml(data.message)}</div>
-        `;
+        const text = document.createElement('div');
+        text.className = 'message-text';
+        text.textContent = data.message || '';
+        item.append(messageHeader(data), text);
         document.getElementById('messages').appendChild(item);
+      }
+
+      function safeImageUrl(value) {
+        if (typeof value !== 'string' || /[\s<>"'\\]/.test(value)) return null;
+        try {
+          const url = new URL(value);
+          if (localPreview && url.protocol === 'blob:') return url.href;
+          if (url.protocol !== 'https:' || url.hostname !== 'res.cloudinary.com' ||
+              url.port || url.username || url.password || url.search || url.hash ||
+              !/^\/[^/]+\/image\/upload\/.+\.(jpg|jpeg|png|gif|webp)$/i.test(url.pathname)) return null;
+          return url.href;
+        } catch { return null; }
       }
 
       function displayImageMessage(data) {
         const item = document.createElement('li');
         item.className = data.username === currentUsername ? 'own-message' : 'incoming-message';
-        item.innerHTML = `
-          <div class="message-header">
-            <span>${escapeHtml(data.username)}</span>
-            <span class="message-time">${formatDhakaTime(data)}</span>
-          </div>
-          <img src="${data.imagePath}" style="max-width: 100%; max-height: 300px; border-radius: 8px; margin-top: 8px; display: block;" />
-        `;
+        item.appendChild(messageHeader(data));
+        const placeholder = document.createElement('span');
+        placeholder.textContent = 'Image unavailable';
+        const url = safeImageUrl(data.imagePath);
+        if (url) {
+          const img = document.createElement('img');
+          img.alt = 'Shared image';
+          img.style.cssText = 'max-width:100%;max-height:300px;border-radius:8px;margin-top:8px;display:block;';
+          img.referrerPolicy = 'no-referrer';
+          img.addEventListener('error', () => img.replaceWith(placeholder), { once: true });
+          img.src = url;
+          item.appendChild(img);
+        } else {
+          item.appendChild(placeholder);
+        }
         document.getElementById('messages').appendChild(item);
       }
 
       function displaySystemMessage(msg) {
         const item = document.createElement('li');
         item.className = 'system';
-        const text = typeof msg === 'string' ? msg : (msg.message || '');
+        const text = document.createElement('span');
+        text.textContent = typeof msg === 'string' ? msg : (msg.message || '');
+        item.appendChild(text);
         const time = formatDhakaTime(msg);
-        item.innerHTML = `
-          <span>${escapeHtml(text)}</span>
-          ${time ? `<span style="font-size: 11px; opacity: 0.8; margin-left: 6px; font-weight: 500;">• ${time}</span>` : ''}
-        `;
+        if (time) {
+          const timestamp = document.createElement('span');
+          timestamp.style.cssText = 'font-size:11px;opacity:0.8;margin-left:6px;font-weight:500;';
+          timestamp.textContent = '• ' + time;
+          item.appendChild(timestamp);
+        }
         document.getElementById('messages').appendChild(item);
       }
 
       function showError(message) {
-        const errorDiv = document.getElementById('errorMessage');
+        const errorDiv = document.getElementById(
+          document.getElementById('chatScreen').style.display === 'none' ? 'errorMessage' : 'chatError'
+        );
         errorDiv.textContent = message;
         errorDiv.style.display = 'block';
         setTimeout(() => {

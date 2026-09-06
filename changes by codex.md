@@ -1,5 +1,24 @@
 # Changes by Codex
 
+## 2026-09-06 — Prevent image-message HTML injection
+
+- Replaced message, image, and system-notice HTML interpolation with DOM element creation and textContent, including usernames and timestamp fallbacks.
+- Added strict HTTPS Cloudinary raster-image URL checks. Both history endpoints redact image URLs outside the configured Cloudinary account; the frontend blocks unsafe URLs and shows an unavailable-image placeholder. Stored records are not deleted or rewritten.
+- Recorded uploaded image URLs, Cloudinary public IDs, and authenticated owners in a MongoDB ImageUpload collection. The upload API now returns an upload ID; image messages submit that ID, and the server resolves its URL after verifying ownership.
+- Restricted Cloudinary uploads to image resources and used the upload adapter's filename field for the public ID. Attempt cleanup if database registration fails.
+- Added image-message acknowledgements, visible chat errors, and session checks to prevent a completed upload from being sent through a different login session.
+- Kept blob image previews restricted to local offline mode.
+- Added regression coverage for unsafe URLs, historical messages, invalid/unknown/other-user upload IDs, ignored client URL overrides, authenticated upload ownership, failed-registration cleanup, socket save/broadcast behavior, and safe DOM rendering.
+- Authentication and image-security tests, backend/frontend syntax, and diff whitespace checks passed. Live Cloudinary/MongoDB integration and browser visual checks were not performed.
+- Deploy both frontend and backend together, then refresh open chat tabs: older clients sending raw image URLs are deliberately rejected. No new environment variables are required; the existing CLOUDINARY_CLOUD_NAME must match the account storing the images.
+
+## 2026-09-06 — Single-row mobile header and composer
+
+- Kept the mobile logo/title, username, Logout, and theme switch on one row using compact spacing and controls. Long names/title text truncate rather than expanding the header.
+- Moved mobile theme status text into a small overlay below the header so it does not add another header row.
+- Kept the message input, Send, and attachment control on one row; the input shrinks to available space while buttons remain usable.
+- Verified JavaScript syntax, diff whitespace, backend authentication tests, and Git exclusion of offline test files. Visual device testing was unavailable.
+
 ## 2026-09-06 — Icon-only upload control
 
 - Removed the visible Image label, retaining an Upload image accessible name and tooltip on the icon button.
