@@ -1,5 +1,20 @@
 # Changes by Codex
 
+## 2026-09-07 — Delivery states, retries, replies, unsend, and reactions
+
+- Added optimistic Sending, server-confirmed Sent, Failed, and Not confirmed states for text and image messages, with Retry controls. Sent means stored by the server, not delivered to/read by another device.
+- Added per-user client message IDs and a partial unique MongoDB index. Retries return the original saved message; concurrent duplicate attempts cannot create duplicate messages. Sends wait for index initialization.
+- Registered message actions and disconnect cleanup before awaiting history. Reconnection reloads confirmed history while retaining pending drafts, and message revisions prevent stale history/acknowledgements from restoring deleted content or old reactions.
+- Pending text and already-uploaded image IDs are kept in per-user tab session storage when available. Raw files that have not finished uploading remain in memory only and need selecting again after a reload. No credentials are stored in this outbox.
+- Added a three-dot message menu with Reply, React, and owner-only Unsend for everyone. Replies show a quoted preview and a cancelable composer preview; clicking a quote jumps to the original when it is loaded.
+- Unsend removes message text/image references from the message record and leaves a deleted-message placeholder. Reply previews update to Message deleted. This implementation has no unsend time limit; it does not erase downloaded copies or delete the underlying Cloudinary upload asset.
+- Reactions support six emoji choices, one per user per message, with replacement/removal and visible counts. Atomic updates preserve the other user's reaction. System notices and deleted messages cannot be replied to or reacted to.
+- Retained image upload ownership checks and safe DOM rendering; no client-supplied reply text or image URL is trusted by the backend.
+- Updated the Git-ignored offline adapter with a sample incoming message, local reply/react/unsend behavior, and selectors to simulate save failures or lost confirmations. It still uses the same production frontend and makes no network requests.
+- Added service/client regression tests covering duplicate IDs and uniqueness conflicts, invalid input, replies, ownership, reaction changes, image retries, persistence failures, stale revisions, per-user outbox restoration, delayed callbacks, and listener registration order.
+- All five backend test files passed. Full offline UI simulation checks passed for login, sending, failed-save/lost-confirmation retries, reply, react, and unsend without network calls. Syntax, diff whitespace, and installed-Mongoose schema/index/Map serialization checks passed. Browser visual testing and live MongoDB/two-device integration were not available.
+- Deployment requires both backend and frontend, including the new `frontend/chat-state.js` asset. Refresh old chat tabs after deployment because sends now require client IDs. No environment variable changes are required. All changes remain local until approved for push.
+
 ## 2026-09-06 — Remove fallback credentials and database URI logging
 
 - Removed hardcoded fallback login passwords. The backend now refuses to start when no complete user credential pair is configured; existing environment-configured logins remain supported.

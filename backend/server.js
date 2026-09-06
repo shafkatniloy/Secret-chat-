@@ -7,7 +7,8 @@ const { CloudinaryStorage } = require('multer-storage-cloudinary');
 const multer = require('multer');
 const cors = require('cors');
 const { createAuth } = require('./auth');
-const { isTrustedImageUrl, safeHistoryMessage, resolveImageUpload } = require('./image-security');
+const { isTrustedImageUrl } = require('./image-security');
+const { createMessageService, registerMessageHandlers } = require('./message-service');
 require('dotenv').config();
 
 const app = express();
@@ -66,12 +67,20 @@ const messageSchema = new mongoose.Schema({
   imagePath: String,
   imagePublicId: String,
   timestamp: String,
+  clientId: String,
+  replyTo: mongoose.Schema.Types.ObjectId,
+  deleted: { type: Boolean, default: false },
+  revision: { type: Number, default: 0 },
+  reactions: { type: Map, of: new mongoose.Schema({ username: String, emoji: String }, { _id: false }), default: {} },
   createdAt: {
     type: Date,
     default: Date.now
   }
 });
 
+messageSchema.index({ username: 1, clientId: 1 }, {
+  unique: true, partialFilterExpression: { clientId: { $type: 'string' } }
+});
 const Message = mongoose.model('Message', messageSchema);
 const ImageUpload = mongoose.model('ImageUpload', new mongoose.Schema({
   username: { type: String, required: true },
@@ -79,8 +88,7 @@ const ImageUpload = mongoose.model('ImageUpload', new mongoose.Schema({
   publicId: { type: String, required: true },
   createdAt: { type: Date, default: Date.now }
 }));
-const safeHistory = messages => messages.map(message =>
-  safeHistoryMessage(message, process.env.CLOUDINARY_CLOUD_NAME));
+const messageService = createMessageService({ Message, ImageUpload, cloudName: process.env.CLOUDINARY_CLOUD_NAME, getTime: getDhakaTime });
 const UserPreference = mongoose.model('UserPreference', new mongoose.Schema({
   username: { type: String, required: true, unique: true },
   theme: { type: String, enum: ['light', 'dark'], default: 'light' }
@@ -181,7 +189,7 @@ app.get('/api/messages', requireAuth, async (req, res) => {
     const messages = await Message.find()
       .sort({ createdAt: -1 })
       .limit(200);
-    res.json(safeHistory(messages.reverse()));
+    res.json(await messageService.present(messages.reverse()));
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -261,75 +269,7 @@ io.on('connection', async (socket) => {
   const isFirstConnection = userSockets.size === 0;
   userSockets.add(socket.id);
   
-  // Send chat history to the connected user (latest 200 messages in chronological order)
-  try {
-    const messages = await Message.find()
-      .sort({ createdAt: -1 })
-      .limit(200);
-    socket.emit('load messages', safeHistory(messages.reverse()));
-  } catch (err) {
-    console.error('❌ Error loading messages:', err.message);
-  }
-  
-  // If this is the user's first connection, record and broadcast join event
-  if (isFirstConnection) {
-    const joinMessage = new Message({
-      type: 'system',
-      username: username,
-      message: `${username} joined the chat`,
-      timestamp: getDhakaTime()
-    });
-
-    try {
-      await joinMessage.save();
-      socket.broadcast.emit('user joined', joinMessage);
-    } catch (err) {
-      console.error('❌ Error saving join message:', err.message);
-    }
-  }
-  
-  socket.on('chat message', async (msg) => {
-    try {
-      const messageData = new Message({
-        type: 'message',
-        username: socket.username,
-        message: msg,
-        timestamp: getDhakaTime()
-      });
-      
-      await messageData.save();
-      
-      // Emit to sender
-      socket.emit('chat message', messageData);
-      // Broadcast to all other users
-      socket.broadcast.emit('chat message', messageData);
-    } catch (err) {
-      console.error('❌ Error saving chat message:', err.message);
-    }
-  });
-
-  socket.on('image message', async (data, acknowledge) => {
-    try {
-      const verified = await resolveImageUpload(ImageUpload, socket.username, data, process.env.CLOUDINARY_CLOUD_NAME);
-      const messageData = new Message({
-        type: 'image',
-        username: socket.username,
-        ...verified,
-        timestamp: getDhakaTime()
-      });
-      
-      await messageData.save();
-      
-      // Emit to sender
-      socket.emit('image message', messageData);
-      // Broadcast to all other users
-      socket.broadcast.emit('image message', messageData);
-      if (typeof acknowledge === 'function') acknowledge({ ok: true });
-    } catch (err) {
-      console.error('❌ Error saving image message:', err.message);
-      if (typeof acknowledge === 'function') acknowledge({ error: 'Image could not be sent. Upload it again and retry.' });
-    }
-  });
+  registerMessageHandlers(socket, io, messageService);
 
   socket.on('disconnect', async () => {
     console.log(`${username} disconnected`);
@@ -358,6 +298,34 @@ io.on('connection', async (socket) => {
       }
     }
   });
+  // Send chat history to the connected user (latest 200 messages in chronological order)
+  try {
+    const messages = await Message.find()
+      .sort({ createdAt: -1 })
+      .limit(200);
+    if (socket.connected) socket.emit('load messages', await messageService.present(messages.reverse()));
+  } catch (err) {
+    console.error('❌ Error loading messages:', err.message);
+    socket.emit('history error');
+  }
+
+  // If this is the user's first connection, record and broadcast join event
+  if (isFirstConnection && socket.connected) {
+    const joinMessage = new Message({
+      type: 'system',
+      username: username,
+      message: `${username} joined the chat`,
+      timestamp: getDhakaTime()
+    });
+
+    try {
+      await joinMessage.save();
+      socket.broadcast.emit('user joined', joinMessage);
+    } catch (err) {
+      console.error('❌ Error saving join message:', err.message);
+    }
+  }
+
 });
 
 const PORT = process.env.PORT || 3000;

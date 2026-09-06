@@ -530,6 +530,28 @@
         #form button { flex: 0 0 auto; padding: 10px; min-height: 44px; }
         #form .upload-btn svg { width: 20px; height: 20px; }
       }
+      #messages li { position: relative; }
+      #messages li:not(.system) .message-header { padding-right: 25px; }
+      .message-actions summary { position: absolute; top: 7px; right: 5px; cursor: pointer; list-style: none; font-size: 24px; line-height: 28px; width: 28px; text-align: center; border-radius: 6px; }
+      .message-actions summary::-webkit-details-marker { display: none; }
+      .message-actions summary:focus-visible, .message-menu button:focus-visible { outline: 2px solid #667eea; }
+      .message-menu { margin-top: 10px; padding: 8px; border: 1px solid #cbd5e0; border-radius: 8px; display: flex; flex-direction: column; gap: 5px; }
+      .message-menu button, .delivery-status button, .reaction-badges button { font: inherit; color: inherit; background: transparent; border: 1px solid #a0aec0; border-radius: 6px; padding: 6px 8px; cursor: pointer; }
+      .message-menu > span { font-size: 12px; }
+      .reaction-picker, .reaction-badges { display: flex; flex-wrap: wrap; gap: 4px; }
+      .reaction-picker button { font-size: 20px; padding: 4px; }
+      .reaction-picker button[aria-pressed="true"] { background: #c7d2fe; }
+      .reaction-badges { margin-top: 6px; }
+      .reaction-badges button { font-size: 12px; padding: 2px 6px; }
+      .delivery-status { margin-top: 7px; font-size: 11px; color: #596579; display: flex; gap: 8px; align-items: center; justify-content: flex-end; }
+      .delivery-status button { padding: 2px 6px; }
+      .reply-quote { display: block; width: 100%; max-width: 320px; margin: 4px 0 8px; padding: 7px 9px; border: 0; border-left: 3px solid #667eea; border-radius: 4px; color: inherit; background: rgba(102,126,234,.12); text-align: left; font: inherit; font-size: 12px; overflow-wrap: anywhere; cursor: pointer; }
+      #replyComposer:not([hidden]) { display: flex; gap: 8px; align-items: center; justify-content: space-between; padding: 8px 12px; font-size: 12px; border-left: 3px solid #667eea; flex-shrink: 0; }
+      #replyComposer span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      #replyComposer button { border: 0; background: transparent; color: inherit; font-size: 24px; cursor: pointer; }
+      .reply-highlight { outline: 2px solid #667eea; }
+      body[data-theme="dark"] .delivery-status { color: #b2bed0; }
+      body[data-theme="dark"] .reaction-picker button[aria-pressed="true"] { background: #49316b; }
     </style>
   </head>
   <body>
@@ -577,6 +599,7 @@
       </div>
       <div id="chatError" class="error" role="alert" style="display: none; margin: 8px 12px 0; flex-shrink: 0;"></div>
       <ul id="messages"></ul>
+      <div id="replyComposer" hidden></div>
       <form id="form" onsubmit="handleSendMessage(event)">
         <input id="input" placeholder="Type a message..." autocomplete="off" />
         <input type="file" id="fileInput" accept="image/*,.gif" style="display: none;" onchange="handleFileUpload(event)" />
@@ -585,6 +608,7 @@
       </form>
     </div>
 
+    <script src="chat-state.js"></script>
     <script>
       // Get backend URL from environment or use default
       const BACKEND_URL = window.location.hostname === 'localhost' 
@@ -594,6 +618,10 @@
       let socket = null;
       let currentUsername = null;
       let themeSession = 0;
+      let chatState = null;
+      let replyTarget = null;
+      let activeMessageMenu = null;
+      let connectionReady = false;
 
       function applyTheme(theme) {
         document.body.dataset.theme = theme;
@@ -714,6 +742,7 @@
           socket.disconnect();
         }
 
+        openChatState(username);
         socket = io(BACKEND_URL, {
           auth: {
             username: username,
@@ -724,128 +753,188 @@
 
         socket.on('connect', () => {
           currentUsername = username;
+          chatState.messages.clear();
+          setReply(null);
           loadTheme();
           // Hide login, show chat
           document.getElementById('loginScreen').style.display = 'none';
           document.getElementById('chatScreen').style.display = 'flex';
           document.getElementById('currentUser').textContent = `${username}`;
-          document.getElementById('messages').innerHTML = '';
+          connectionReady = false;
+          renderChat();
           document.getElementById('input').focus();
           scrollToBottom();
         });
 
         socket.on('connect_error', (error) => {
-          showError('Invalid username or password.');
-          if (socket) {
+          if (error.message === 'Unauthorized') {
+            showError('Invalid username or password.');
             socket.disconnect();
-          }
-          currentUsername = null;
+            currentUsername = null;
+          } else showError('Cannot reach the chat server. Reconnecting…');
+        });
+        socket.on('history error', () => {
+          connectionReady = true;
+          showError('History could not load. Reconnect to refresh it; your pending messages are kept.');
         });
 
         socket.on('load messages', (messages) => {
-          document.getElementById('messages').innerHTML = '';
-          messages.forEach(msg => {
-            if (msg.type === 'message') {
-              displayMessage(msg);
-            } else if (msg.type === 'image') {
-              displayImageMessage(msg);
-            } else if (msg.type === 'system') {
-              displaySystemMessage(msg);
+          messages.forEach(message => chatState.receive(message));
+          connectionReady = true;
+          saveOutbox();
+          renderChat();
+          scrollToBottom();
+        });
+        for (const event of ['chat message', 'image message', 'message updated', 'user joined', 'user left']) {
+          socket.on(event, receiveMessage);
+        }
+        socket.on('disconnect', () => {
+          connectionReady = false;
+          ++themeSession;
+          for (const draft of chatState.pending.values()) {
+            if (draft.status === 'Sending…') draft.status = 'Not confirmed';
+          }
+          saveOutbox();
+          renderChat();
+          showError('Connection lost. Your pending messages are kept; reconnect to retry.');
+        });
+      }
+
+      function openChatState(username) {
+        if (chatState?.username === username) return;
+        chatState = new ChatState(username);
+        setReply(null);
+        try {
+          const drafts = JSON.parse(sessionStorage.getItem('chat-outbox:' + username) || '[]');
+          for (const draft of drafts) {
+            if (draft.username === username && typeof draft.clientId === 'string') {
+              draft.status = 'Not confirmed'; draft.busy = false;
+              chatState.pending.set(draft.clientId, draft);
+            }
+          }
+        } catch { /* Storage can be unavailable in local previews. */ }
+      }
+
+      function saveOutbox() {
+        if (!chatState) return;
+        try {
+          const drafts = [...chatState.pending.values()].filter(d => d.type === 'message' || d.uploadId)
+            .map(({ file, busy, ...draft }) => draft);
+          sessionStorage.setItem('chat-outbox:' + chatState.username, JSON.stringify(drafts));
+        } catch { /* Keep the in-memory outbox when storage is unavailable. */ }
+      }
+
+      function receiveMessage(data) {
+        if (!chatState) return;
+        chatState.receive(data);
+        if (replyTarget && String(data._id) === String(replyTarget._id) && data.deleted) setReply(null);
+        saveOutbox();
+        renderChat();
+      }
+
+      function renderChat() {
+        if (!chatState) return;
+        const list = document.getElementById('messages');
+        const nearBottom = list.scrollHeight - list.scrollTop - list.clientHeight < 100;
+        const top = list.scrollTop;
+        list.replaceChildren();
+        for (const data of chatState.list()) {
+          if (data.type === 'system') displaySystemMessage(data);
+          else if (data.type === 'image' && !data.status && !data.deleted) displayImageMessage(data);
+          else displayMessage(data);
+        }
+        if (nearBottom) scrollToBottom(); else list.scrollTop = top;
+      }
+
+      function setReply(data) {
+        replyTarget = data;
+        const panel = document.getElementById('replyComposer');
+        panel.replaceChildren();
+        panel.hidden = !data;
+        if (data) {
+          const label = document.createElement('span');
+          label.textContent = 'Replying to ' + data.username + ': ' + (data.type === 'image' ? 'Photo' : data.message || '').slice(0, 160);
+          const cancel = document.createElement('button');
+          cancel.type = 'button'; cancel.textContent = '×'; cancel.setAttribute('aria-label', 'Cancel reply');
+          cancel.onclick = () => setReply(null);
+          panel.append(label, cancel);
+          document.getElementById('input').focus();
+        }
+      }
+
+      function newDraft(type, values) {
+        const draft = { username: currentUsername, clientId: crypto.randomUUID(), type,
+          createdAt: new Date().toISOString(), replyTo: replyTarget?._id || null,
+          replyPreview: replyTarget ? { username: replyTarget.username, text: replyTarget.type === 'image' ? 'Photo' : replyTarget.message } : null,
+          status: 'Sending…', ...values };
+        chatState.pending.set(draft.clientId, draft);
+        setReply(null);
+        saveOutbox();
+        renderChat();
+        scrollToBottom();
+        sendDraft(draft);
+      }
+
+      async function uploadDraft(draft, connection) {
+            if (!draft.file) throw new Error('Select this image again to upload it.');
+            const credentials = new TextEncoder().encode(`${connection.auth.username}:${connection.auth.password}`);
+            const body = new FormData(); body.append('file', draft.file);
+            const response = await fetch(BACKEND_URL + '/api/upload', { method: 'POST', body,
+              headers: { Authorization: 'Basic ' + btoa(Array.from(credentials, byte => String.fromCharCode(byte)).join('')) } });
+            const uploaded = await response.json();
+            if (!response.ok || !uploaded.uploadId) throw new Error(uploaded.error || 'Upload failed.');
+            draft.uploadId = uploaded.uploadId;
+            delete draft.file;
+      }
+
+      async function sendDraft(draft) {
+        const state = chatState;
+        const connection = socket;
+        if (!connection?.connected || !connectionReady) {
+          draft.status = 'Not confirmed'; saveOutbox(); renderChat(); return;
+        }
+        if (draft.busy) return;
+        draft.busy = true; draft.status = 'Sending…'; renderChat();
+        try {
+          if (draft.type === 'image' && !draft.uploadId) {
+            await uploadDraft(draft, connection);
+          }
+          if (state !== chatState || socket !== connection || !connection.connected) {
+            draft.status = 'Not confirmed'; draft.busy = false; return;
+          }
+          saveOutbox();
+          const payload = { clientId: draft.clientId, message: draft.message, uploadId: draft.uploadId, replyTo: draft.replyTo };
+          connection.timeout(15000).emit(draft.type === 'image' ? 'image message' : 'chat message', payload, (err, result) => {
+            draft.busy = false;
+            if (state !== chatState) return;
+            if (result?.ok && result.message) receiveMessage(result.message);
+            else if (state.pending.has(draft.clientId)) {
+              draft.status = err || result?.notConfirmed ? 'Not confirmed' : 'Failed';
+              draft.error = result?.error || 'Confirmation was not received. Retrying will not duplicate the message.';
+              saveOutbox(); renderChat();
             }
           });
-          scrollToBottom();
-        });
-
-        socket.on('chat message', (data) => {
-          displayMessage(data);
-          scrollToBottom();
-        });
-
-        socket.on('image message', (data) => {
-          displayImageMessage(data);
-          scrollToBottom();
-        });
-
-        socket.on('user joined', (msg) => {
-          displaySystemMessage(msg);
-          scrollToBottom();
-        });
-
-        socket.on('user left', (msg) => {
-          displaySystemMessage(msg);
-          scrollToBottom();
-        });
-
-        socket.on('disconnect', () => {
-          ++themeSession;
-          applyTheme('light');
-          document.getElementById('loginScreen').style.display = 'flex';
-          document.getElementById('chatScreen').style.display = 'none';
-          document.getElementById('usernameInput').value = '';
-          document.getElementById('passwordInput').value = '';
-          currentUsername = null;
-        });
+        } catch (err) {
+          draft.busy = false; draft.status = 'Failed'; draft.error = err.message;
+          if (state === chatState) { saveOutbox(); renderChat(); }
+        }
       }
 
       function handleSendMessage(event) {
         event.preventDefault();
         const input = document.getElementById('input');
-        if (input.value.trim()) {
-          socket.emit('chat message', input.value);
-          input.value = '';
-        }
+        if (!input.value.trim() || !currentUsername) return;
+        if (input.value.length > 10000) { showError('Messages can contain up to 10000 characters.'); return; }
+        newDraft('message', { message: input.value });
+        input.value = '';
       }
 
       function handleFileUpload(event) {
         const file = event.target.files[0];
-        if (!file) return;
-        if (!socket || !socket.connected) {
-          showError('Please log in before uploading an image.');
-          event.target.value = '';
-          return;
-        }
-
-        // Keep credentials in memory and send them only over HTTPS in production.
-        const credentials = new TextEncoder().encode(
-          `${socket.auth.username}:${socket.auth.password}`
-        );
-        const authorization = 'Basic ' + btoa(
-          Array.from(credentials, byte => String.fromCharCode(byte)).join('')
-        );
-
-        const formData = new FormData();
-        formData.append('file', file);
-        const uploadSocket = socket;
-        const uploadSession = themeSession;
-
-        fetch(BACKEND_URL + '/api/upload', {
-          method: 'POST',
-          headers: { Authorization: authorization },
-          body: formData
-        })
-        .then(async res => {
-          const result = await res.json();
-          if (!res.ok) throw new Error(result.error || 'Upload failed');
-          return result;
-        })
-        .then(data => {
-          if (socket !== uploadSocket || themeSession !== uploadSession || !uploadSocket.connected) return;
-          if (data.error) {
-            showError(data.error);
-          } else {
-            uploadSocket.timeout(15000).emit('image message', { uploadId: data.uploadId }, (err, result) => {
-              if (socket !== uploadSocket || themeSession !== uploadSession) return;
-              if (err || !result?.ok) {
-                showError(result?.error || 'Image delivery was not confirmed. Check the chat before retrying.');
-              }
-            });
-          }
-          document.getElementById('fileInput').value = '';
-        })
-        .catch(err => {
-          showError('Error uploading file: ' + err.message);
-          document.getElementById('fileInput').value = '';
-        });
+        if (!file || !currentUsername) return;
+        if (file.size > 10 * 1024 * 1024) { showError('Images must be 10 MB or smaller.'); return; }
+        newDraft('image', { message: 'Photo', file });
+        event.target.value = '';
       }
 
       function formatDhakaTime(data, now = new Date()) {
@@ -878,6 +967,96 @@
         return data.timestamp || '';
       }
 
+      function messageAction(event, payload, button) {
+        if (!socket?.connected) { showError('Reconnect before changing a message.'); return; }
+        const state = chatState;
+        button.disabled = true;
+        socket.timeout(15000).emit(event, payload, (err, result) => {
+          button.disabled = false;
+          if (state !== chatState) return;
+          if (err || !result?.ok) showError(result?.error || 'Action not confirmed. You can retry safely.');
+          else receiveMessage(result.message);
+        });
+      }
+
+      function decorateMessage(item, data) {
+        if (data._id) item.id = 'message-' + data._id;
+        if (data.replyTo && !data.deleted) {
+          const original = chatState?.messages.get(String(data.replyTo));
+          const quote = document.createElement('button');
+          quote.type = 'button'; quote.className = 'reply-quote';
+          const preview = original ? { username: original.username, text: original.deleted ? 'Message deleted' : original.type === 'image' ? 'Photo' : original.message } : data.replyPreview;
+          quote.textContent = (preview?.username ? preview.username + ': ' : '') + String(preview?.text || 'Original message unavailable').slice(0, 200);
+          quote.onclick = () => {
+            const target = document.getElementById('message-' + data.replyTo);
+            if (target) { target.scrollIntoView({ block: 'center', behavior: 'smooth' }); target.classList.add('reply-highlight'); setTimeout(() => target.classList.remove('reply-highlight'), 1500); }
+            else showError('The original message is outside the loaded history.');
+          };
+          item.insertBefore(quote, item.children[1]);
+        }
+        if (data.username === currentUsername) {
+          const delivery = document.createElement('div'); delivery.className = 'delivery-status';
+          delivery.setAttribute('role', 'status');
+          delivery.textContent = data.status || 'Sent';
+          delivery.title = data.error || 'Sent means saved by the server, not read by the recipient.';
+          if (data.status && data.status !== 'Sending…') {
+            const retry = document.createElement('button'); retry.type = 'button'; retry.textContent = 'Retry';
+            retry.disabled = !!data.busy;
+            retry.onclick = () => sendDraft(data); delivery.appendChild(retry);
+          }
+          item.appendChild(delivery);
+        }
+        if (data.deleted || !data._id || data.type === 'system') return;
+        const details = document.createElement('details'); details.className = 'message-actions';
+        const summary = document.createElement('summary'); summary.textContent = '⋮';
+        summary.setAttribute('aria-label', 'Message options');
+        const menu = document.createElement('div'); menu.className = 'message-menu';
+        const reply = document.createElement('button'); reply.type = 'button'; reply.textContent = 'Reply';
+        reply.onclick = () => { details.open = false; setReply(data); };
+        menu.appendChild(reply);
+        const reactLabel = document.createElement('span'); reactLabel.textContent = 'React'; menu.appendChild(reactLabel);
+        const reactions = document.createElement('div'); reactions.className = 'reaction-picker';
+        const own = Object.values(data.reactions || {}).find(entry => entry.username === currentUsername)?.emoji;
+        const names = ['Thumbs up', 'Heart', 'Laugh', 'Surprised', 'Sad', 'Thank you'];
+        ['👍', '❤️', '😂', '😮', '😢', '🙏'].forEach((emoji, index) => {
+          const button = document.createElement('button'); button.type = 'button'; button.textContent = emoji;
+          button.setAttribute('aria-label', names[index]); button.setAttribute('aria-pressed', String(own === emoji));
+          button.onclick = () => { details.open = false; messageAction('react message', { messageId: data._id, emoji: own === emoji ? null : emoji }, button); };
+          reactions.appendChild(button);
+        });
+        menu.appendChild(reactions);
+        if (data.username === currentUsername) {
+          const unsend = document.createElement('button'); unsend.type = 'button'; unsend.textContent = 'Unsend for everyone';
+          unsend.onclick = () => {
+            if (window.confirm('Unsend this message for everyone?')) {
+              details.open = false; messageAction('unsend message', { messageId: data._id }, unsend);
+            }
+          };
+          menu.appendChild(unsend);
+        }
+        details.append(summary, menu);
+        details.addEventListener('toggle', () => {
+          if (details.open) {
+            if (activeMessageMenu && activeMessageMenu !== details) activeMessageMenu.open = false;
+            activeMessageMenu = details;
+          }
+        });
+        details.addEventListener('keydown', event => { if (event.key === 'Escape') { details.open = false; summary.focus(); } });
+        item.appendChild(details);
+        const entries = Object.values(data.reactions || {});
+        if (entries.length) {
+          const badges = document.createElement('div'); badges.className = 'reaction-badges';
+          for (const emoji of [...new Set(entries.map(entry => entry.emoji))]) {
+            const users = entries.filter(entry => entry.emoji === emoji).map(entry => entry.username);
+            const badge = document.createElement('button'); badge.type = 'button'; badge.textContent = emoji + ' ' + users.length;
+            badge.title = users.join(', '); badge.setAttribute('aria-label', emoji + ': ' + users.join(', '));
+            badge.onclick = () => { if (users.includes(currentUsername)) messageAction('react message', { messageId: data._id, emoji: null }, badge); else { details.open = true; } };
+            badges.appendChild(badge);
+          }
+          item.appendChild(badges);
+        }
+      }
+
       function messageHeader(data) {
         const header = document.createElement('div');
         header.className = 'message-header';
@@ -895,8 +1074,9 @@
         item.className = data.username === currentUsername ? 'own-message' : 'incoming-message';
         const text = document.createElement('div');
         text.className = 'message-text';
-        text.textContent = data.message || '';
+        text.textContent = data.deleted ? 'This message was deleted' : data.type === 'image' ? 'Photo' : data.message || '';
         item.append(messageHeader(data), text);
+        if (data._id || data.clientId) decorateMessage(item, data);
         document.getElementById('messages').appendChild(item);
       }
 
@@ -930,6 +1110,7 @@
         } else {
           item.appendChild(placeholder);
         }
+        if (data._id || data.clientId) decorateMessage(item, data);
         document.getElementById('messages').appendChild(item);
       }
 
@@ -963,6 +1144,10 @@
 
       function handleLogout() {
         ++themeSession;
+        connectionReady = false;
+        saveOutbox();
+        setReply(null);
+        document.getElementById('input').value = '';
         applyTheme('light');
         if (socket) {
           socket.removeAllListeners();

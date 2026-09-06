@@ -49,29 +49,25 @@ test('image IDs are validated and ownership is enforced; client URLs are ignored
   }, 'test-cloud'), { imagePath: goodUrl, imagePublicId: 'secret-chat/photo' });
 });
 
-test('image socket handler saves and broadcasts only verified data', async () => {
-  const source = fs.readFileSync(path.join(__dirname, 'server.js'), 'utf8');
-  let handler;
-  const saved = [], emitted = [];
-  const context = {
-    socket: { username: 'Alice', on: (event, fn) => { handler = fn; },
-      emit: (event, data) => emitted.push(data), broadcast: { emit: (event, data) => emitted.push(data) } },
-    ImageUpload: { findOne: async query => query.username === 'Alice' && query._id === uploadId
-      ? { url: goodUrl, publicId: 'secret-chat/photo' } : null },
-    Message: class { constructor(data) { Object.assign(this, data); } async save() { saved.push(this); } },
-    resolveImageUpload, process: { env: { CLOUDINARY_CLOUD_NAME: 'test-cloud' } },
-    getDhakaTime: () => '12:00 PM', console: { error() {} }
+test('image socket handler only broadcasts service-verified data', async () => {
+  const { registerMessageHandlers } = require('./message-service');
+  const handlers = {}, emitted = [];
+  const socket = { username: 'Alice', on: (event, fn) => { handlers[event] = fn; } };
+  const service = {
+    send: async (username, type, data) => {
+      const verified = await resolveImageUpload({ findOne: async query => query._id === uploadId && query.username === 'Alice'
+        ? { url: goodUrl, publicId: 'secret-chat/photo' } : null }, username, data, 'test-cloud');
+      return { ...verified, username, type };
+    }, present: async messages => messages, unsend() {}, react() {}
   };
-  vm.runInNewContext(source.slice(source.indexOf("  socket.on('image message'"), source.indexOf("  socket.on('disconnect'")), context);
+  registerMessageHandlers(socket, { emit: (event, data) => emitted.push(data) }, service);
   let ack;
-  await handler({ uploadId, imagePath: 'javascript:alert(1)' }, result => { ack = result; });
+  await handlers['image message']({ uploadId, imagePath: 'javascript:alert(1)' }, result => { ack = result; });
   assert.equal(ack.ok, true);
-  assert.equal(saved[0].imagePath, goodUrl);
-  assert.equal(emitted.length, 2);
-  await handler({ imagePath: goodUrl }, result => { ack = result; });
+  assert.equal(emitted[0].imagePath, goodUrl);
+  await handlers['image message']({ imagePath: goodUrl }, result => { ack = result; });
   assert.equal(typeof ack.error, 'string');
-  assert.equal(saved.length, 1);
-  assert.equal(emitted.length, 2);
+  assert.equal(emitted.length, 1);
 });
 
 test('upload registration uses the authenticated owner and cleans up failed records', async () => {

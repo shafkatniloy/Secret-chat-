@@ -10,7 +10,7 @@ function isTrustedImageUrl(value, cloudName) {
 }
 
 function safeHistoryMessage(message, cloudName) {
-  const data = typeof message.toObject === 'function' ? message.toObject() : { ...message };
+  const data = typeof message.toObject === 'function' ? message.toObject({ flattenMaps: true }) : { ...message };
   if (data.type === 'image' && !isTrustedImageUrl(data.imagePath, cloudName)) data.imagePath = null;
   return data;
 }
