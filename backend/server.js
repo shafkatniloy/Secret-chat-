@@ -40,11 +40,9 @@ if (process.env.USER_2_NAME && process.env.USER_2_PASSWORD) {
   validUsers[process.env.USER_2_NAME] = process.env.USER_2_PASSWORD;
 }
 
-// Fallback for local development (if env vars not set)
+// Never start with publicly known or implicit login credentials.
 if (Object.keys(validUsers).length === 0) {
-  console.warn('⚠️  No user credentials found in environment variables. Using default credentials.');
-  validUsers['Niloy'] = 'niloy1488';
-  validUsers['Mim'] = 'ohona24';
+  throw new Error('No chat users configured. Set USER_1_NAME/USER_1_PASSWORD or USER_2_NAME/USER_2_PASSWORD.');
 }
 
 const { isValidUser, requireAuth } = createAuth(validUsers);
@@ -134,8 +132,8 @@ mongoose.connect(MONGODB_URI, {
   tlsAllowInvalidHostnames: false
 }).then(() => {
   console.log('✅ Connected to MongoDB');
-}).catch(err => {
-  console.error('❌ MongoDB connection error:', err.message);
+}).catch(() => {
+  console.error('❌ MongoDB connection failed. Check database configuration and network access.');
   console.log('⚠️ Note: Backend will still work, but messages/images won\'t persist until MongoDB connects');
   console.log('💡 Common fixes:');
   console.log('   1. Check MongoDB URI is correct');
@@ -366,5 +364,4 @@ const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
   console.log(`Chat backend is ready on port ${PORT}`);
   console.log(`Frontend URLs: ${FRONTEND_URLS.join(', ')}`);
-  console.log(`Database: ${MONGODB_URI}`);
 });

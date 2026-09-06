@@ -1,5 +1,14 @@
 # Changes by Codex
 
+## 2026-09-06 — Remove fallback credentials and database URI logging
+
+- Removed hardcoded fallback login passwords. The backend now refuses to start when no complete user credential pair is configured; existing environment-configured logins remain supported.
+- Removed startup logging of the MongoDB connection string and replaced raw database connection errors with a generic diagnostic so connection details are not printed there.
+- Cleared password values in `.env.example` and documented that unique passwords must be configured. Local `.env` and Render settings were not changed.
+- Added regression tests for missing/incomplete credentials, explicit two-user login configuration, wrong passwords, and a single configured user.
+- All backend authentication, credential configuration, and image-security tests passed, along with backend syntax and diff whitespace checks.
+- Requires backend deployment only. This change does not remove existing Git history or previously generated hosting logs.
+
 ## 2026-09-06 — Prevent image-message HTML injection
 
 - Replaced message, image, and system-notice HTML interpolation with DOM element creation and textContent, including usernames and timestamp fallbacks.
