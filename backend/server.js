@@ -71,6 +71,8 @@ const messageSchema = new mongoose.Schema({
   replyTo: mongoose.Schema.Types.ObjectId,
   deleted: { type: Boolean, default: false },
   revision: { type: Number, default: 0 },
+  seenBy: String,
+  seenAt: Date,
   reactions: { type: Map, of: new mongoose.Schema({ username: String, emoji: String }, { _id: false }), default: {} },
   createdAt: {
     type: Date,

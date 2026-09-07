@@ -84,3 +84,49 @@ test('message handlers and disconnect cleanup are registered before history awai
   assert(connection.indexOf('registerMessageHandlers(') < connection.indexOf('await Message.find()'));
   assert(connection.indexOf("socket.on('disconnect'") < connection.indexOf('await Message.find()'));
 });
+
+test('read receipts require focus and visible incoming message bubbles', () => {
+  const html = fs.readFileSync(path.join(__dirname, '../frontend/index.html'), 'utf8');
+  const state = new ChatState('Alice');
+  state.receive({ _id: 'visible', username: 'Bob', type: 'message' });
+  state.receive({ _id: 'offscreen', username: 'Bob', type: 'image' });
+  state.receive({ _id: 'own', username: 'Alice', type: 'message' });
+  state.receive({ _id: 'deleted', username: 'Bob', type: 'message', deleted: true });
+  let focused = true;
+  const calls = [];
+  const context = vm.createContext({ chatState: state, currentUsername: 'Alice', receiptBusy: false,
+    connectionReady: true, window: { innerHeight: 600 }, renderChat() {}, scheduleReadReceipts() {},
+    socket: { connected: true, timeout() { return this; }, emit(event, payload, callback) { calls.push({ event, payload, callback }); } },
+    document: { visibilityState: 'hidden', hasFocus: () => focused, getElementById(id) {
+      if (id === 'chatScreen') return { style: { display: 'flex' } };
+      return { getBoundingClientRect: () => id === 'messages' ? { top: 100, bottom: 500 }
+        : id === 'message-offscreen' ? { top: 600, bottom: 650, height: 50 } : { top: 120, bottom: 170, height: 50 } };
+    } }
+  });
+  vm.runInContext(html.slice(html.indexOf('      function sendReadReceipts('), html.indexOf('      function decorateMessage(')), context);
+  context.sendReadReceipts(); assert.equal(calls.length, 0);
+  context.document.visibilityState = 'visible'; focused = false;
+  context.sendReadReceipts(); assert.equal(calls.length, 0);
+  focused = true; context.sendReadReceipts();
+  assert.equal(calls.length, 1);
+  assert.deepEqual(Array.from(calls[0].payload.messageIds), ['visible']);
+  calls[0].callback(null, { ok: true, messages: [{ _id: 'visible', username: 'Bob', type: 'message', seenBy: 'Alice', revision: 1 }] });
+  context.sendReadReceipts(); assert.equal(calls.length, 1);
+});
+
+test('delivery icons use distinct SVG paths without visible status text', () => {
+  const html = fs.readFileSync(path.join(__dirname, '../frontend/index.html'), 'utf8');
+  const context = vm.createContext({ document: { createElementNS(ns, tag) {
+    return { tag, attributes: {}, children: [], setAttribute(key, value) { this.attributes[key] = value; }, appendChild(child) { this.children.push(child); } };
+  } } });
+  vm.runInContext(html.slice(html.indexOf('      function deliveryIcon('), html.indexOf('      function scheduleReadReceipts(')), context);
+  const paths = new Set();
+  for (const state of ['sending', 'sent', 'seen', 'failed']) {
+    const icon = context.deliveryIcon(state);
+    assert.equal(icon.attributes['aria-hidden'], 'true');
+    assert.equal(icon.attributes.class, 'delivery-icon delivery-' + state);
+    paths.add(icon.children[0].attributes.d);
+    assert.equal(icon.textContent, undefined);
+  }
+  assert.equal(paths.size, 4);
+});

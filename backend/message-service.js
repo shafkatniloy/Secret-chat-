@@ -84,7 +84,19 @@ function createMessageService({ Message, ImageUpload, cloudName, getTime }) {
     if (!message) throw new Error('That message is no longer available.');
     return message;
   }
-  return { send, unsend, react, present };
+  async function seen(username, data) {
+    if (!Array.isArray(data?.messageIds) || data.messageIds.length > 50 || !data.messageIds.every(objectId)) {
+      throw new Error('Invalid read receipt.');
+    }
+    const changed = await Promise.all([...new Set(data.messageIds)].map(async _id =>
+      await Message.findOneAndUpdate({ _id, username: { $ne: username }, deleted: { $ne: true },
+        type: { $in: ['message', 'image'] }, seenBy: { $ne: username } },
+      { $set: { seenBy: username, seenAt: new Date() }, $inc: { revision: 1 } }, { new: true }) ||
+      await Message.findOne({ _id, username: { $ne: username }, type: { $in: ['message', 'image'] } })
+    ));
+    return changed.filter(Boolean);
+  }
+  return { send, unsend, react, present, seen };
 }
 
 function registerMessageHandlers(socket, io, service) {
@@ -104,5 +116,14 @@ function registerMessageHandlers(socket, io, service) {
   handle('image message', (username, data) => service.send(username, 'image', data), 'image message');
   handle('unsend message', service.unsend, 'message updated');
   handle('react message', service.react, 'message updated');
+  socket.on('messages seen', async (data, ack) => {
+    try {
+      const messages = await service.present(await service.seen(socket.username, data));
+      for (const message of messages) io.emit('message updated', message);
+      if (typeof ack === 'function') ack({ ok: true, messages });
+    } catch {
+      if (typeof ack === 'function') ack({ error: 'Read receipt could not be saved.' });
+    }
+  });
 }
 module.exports = { createMessageService, registerMessageHandlers, REACTIONS };

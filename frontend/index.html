@@ -566,6 +566,16 @@
       .reply-highlight { outline: 2px solid #667eea; }
       body[data-theme="dark"] .delivery-status { color: #b2bed0; }
       body[data-theme="dark"] .reaction-picker button[aria-pressed="true"] { background: #49316b; }
+      .delivery-icon { width: 12px; height: 12px; display: block; }
+      .delivery-seen { width: 15px; color: #15803d; }
+      body[data-theme="dark"] .delivery-seen { color: #4ade80; }
+      .delivery-failed { color: #dc2626; }
+      body[data-theme="dark"] .delivery-failed { color: #f87171; }
+      .delivery-status .delivery-retry { border: 0; padding: 0; background: transparent; cursor: pointer; position: relative; }
+      .delivery-retry::before { content: ''; position: absolute; inset: -7px; }
+      .delivery-sending { animation: delivery-spin .8s linear infinite; }
+      @keyframes delivery-spin { to { transform: rotate(360deg); } }
+      @media (prefers-reduced-motion: reduce) { .delivery-sending { animation: none; } }
     </style>
   </head>
   <body>
@@ -637,6 +647,8 @@
       let replyTarget = null;
       let activeMessageMenu = null;
       let connectionReady = false;
+      let receiptTimer = null;
+      let receiptBusy = false;
 
       let countdownInterval = null;
       const countdownTarget = Date.parse('2026-09-24T00:00:00+06:00');
@@ -883,6 +895,7 @@
           else displayMessage(data);
         }
         if (nearBottom) scrollToBottom(); else list.scrollTop = top;
+        scheduleReadReceipts();
       }
 
       function setReply(data) {
@@ -1018,6 +1031,54 @@
         });
       }
 
+      function deliveryIcon(state) {
+        const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        svg.setAttribute('viewBox', '0 0 24 24'); svg.setAttribute('fill', 'none');
+        svg.setAttribute('stroke', 'currentColor'); svg.setAttribute('stroke-width', '2');
+        svg.setAttribute('stroke-linecap', 'round'); svg.setAttribute('stroke-linejoin', 'round');
+        svg.setAttribute('aria-hidden', 'true');
+        svg.setAttribute('class', 'delivery-icon delivery-' + state);
+        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        path.setAttribute('d', state === 'sending' ? 'M21 12a9 9 0 1 1-9-9'
+          : state === 'failed' ? 'M12 3 2 21h20L12 3Zm0 6v5m0 3v.1'
+          : state === 'seen' ? 'm1 12 4 4L15 6m-5 6 4 4L24 6' : 'm4 12 5 5L20 6');
+        svg.appendChild(path);
+        return svg;
+      }
+
+      function scheduleReadReceipts(delay = 150) {
+        if (receiptTimer !== null) return;
+        receiptTimer = setTimeout(() => { receiptTimer = null; sendReadReceipts(); }, delay);
+      }
+
+      function sendReadReceipts() {
+        if (receiptBusy || !socket?.connected || !connectionReady || !chatState ||
+            document.visibilityState !== 'visible' || !document.hasFocus() ||
+            document.getElementById('chatScreen').style.display === 'none') return;
+        const listRect = document.getElementById('messages').getBoundingClientRect();
+        const ids = [];
+        for (const message of chatState.messages.values()) {
+          if (message.username === currentUsername || message.type === 'system' || message.deleted || message.seenBy === currentUsername) continue;
+          const element = document.getElementById('message-' + message._id);
+          if (!element) continue;
+          const rect = element.getBoundingClientRect();
+          const visibleHeight = Math.min(rect.bottom, listRect.bottom, window.innerHeight) - Math.max(rect.top, listRect.top, 0);
+          if (visibleHeight >= Math.min(rect.height, 40) && rect.height > 0) ids.push(String(message._id));
+          if (ids.length === 50) break;
+        }
+        if (!ids.length) return;
+        const state = chatState, connection = socket;
+        receiptBusy = true;
+        connection.timeout(15000).emit('messages seen', { messageIds: ids }, (err, result) => {
+          receiptBusy = false;
+          if (chatState !== state || socket !== connection) { scheduleReadReceipts(); return; }
+          if (!err && result?.ok) {
+            for (const message of result.messages || []) state.receive(message);
+            renderChat();
+          } else scheduleReadReceipts(5000);
+        });
+      }
+
       function decorateMessage(item, data) {
         if (data._id) item.id = 'message-' + data._id;
         if (data.replyTo && !data.deleted) {
@@ -1036,13 +1097,21 @@
         if (data.username === currentUsername) {
           const delivery = document.createElement('div'); delivery.className = 'delivery-status';
           delivery.setAttribute('role', 'status');
-          delivery.textContent = data.status || 'Sent';
-          delivery.title = data.error || 'Sent means saved by the server, not read by the recipient.';
-          if (data.status && data.status !== 'Sending…') {
-            const retry = document.createElement('button'); retry.type = 'button'; retry.textContent = 'Retry';
-            retry.disabled = !!data.busy;
-            retry.onclick = () => sendDraft(data); delivery.appendChild(retry);
-          }
+          const failed = !!data.status && data.status !== 'Sending…';
+          const state = failed ? 'failed' : data.status === 'Sending…' ? 'sending'
+            : data.seenBy && data.seenBy !== data.username ? 'seen' : 'sent';
+          const label = state === 'failed' ? (data.status === 'Not confirmed' ? 'Not confirmed. Retry' : 'Failed to send. Retry')
+            : state === 'seen' ? 'Seen by the other user' : state === 'sending' ? 'Sending' : 'Sent';
+          delivery.setAttribute('aria-label', label);
+          delivery.title = data.error ? label + ': ' + data.error : label;
+          const symbol = deliveryIcon(state);
+          if (failed) {
+            const retry = document.createElement('button'); retry.type = 'button';
+            retry.className = 'delivery-retry'; retry.setAttribute('aria-label', label);
+            retry.title = delivery.title; retry.disabled = !!data.busy;
+            retry.appendChild(symbol); retry.onclick = () => sendDraft(data);
+            delivery.appendChild(retry);
+          } else delivery.appendChild(symbol);
           item.appendChild(delivery);
         }
         if (data.deleted || !data._id || data.type === 'system') return;
@@ -1211,6 +1280,11 @@
         };
         return text.replace(/[&<>"']/g, m => map[m]);
       }
+
+      document.getElementById('messages').addEventListener('scroll', () => scheduleReadReceipts(), { passive: true });
+      document.addEventListener('visibilitychange', () => scheduleReadReceipts());
+      window.addEventListener('focus', () => scheduleReadReceipts());
+      window.addEventListener('resize', () => scheduleReadReceipts());
 
       // Focus on username input on load
       window.addEventListener('load', () => {

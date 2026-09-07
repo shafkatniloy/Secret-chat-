@@ -1,5 +1,47 @@
 # Changes by Codex
 
+## 2026-09-08 — Introduce the project in the GitHub README
+
+- Replaced the minimal README with a logo-first introduction to আমাদের কথা, highlighting that it is a fun personal side project.
+- Documented features, the technology stack, local setup, tests, project structure, and privacy limitations without including credentials.
+- Verified the logo/document links and diff whitespace.
+
+## 2026-09-08 — Move countdown into a secondary header
+
+- Moved the countdown directly below the main chat header, retaining its content-width size and Niloy-only visibility.
+- Applied a dark reddish background (`#701f2a`) and light text in both themes. Countdown target and format remain unchanged.
+- Updated the local offline preview adapter for the renamed countdown handler.
+- Verified frontend and preview JavaScript syntax and diff whitespace. Browser visual verification was not performed.
+
+## 2026-09-08 — Enable countdown in offline preview
+
+- Updated the local, Git-ignored `frontend/offline-preview.js` adapter to start the countdown after its simulated Niloy login.
+- Open `frontend/offline-test.html` and use `a` for both username and password to preview the countdown without a backend connection.
+- Verified the adapter's JavaScript syntax. Browser visual verification was not performed.
+
+## 2026-09-08 — Add Niloy-only countdown footer
+
+- Added a compact, content-width secondary footer beneath the message composer in `frontend/index.html`.
+- Displays only `x days, x hours, x minutes`, counting down to September 24, 2026, at midnight Bangladesh time (UTC+06:00).
+- Shows the footer after successful login as `Niloy`; hides and clears it on logout or an unauthorized connection error and for other users.
+- Updates every second and stays at `0 days, 0 hours, 0 minutes` after the target date.
+- Verified frontend JavaScript syntax, countdown calculation, expiry, user visibility, and diff whitespace. Browser visual verification was not performed.
+- Deploy the frontend to publish this change.
+
+## 2026-09-08 — Green seen indicator
+
+- Colored the Seen double tick green, with a brighter green in dark mode for contrast. Other delivery indicators are unchanged.
+
+## 2026-09-08 — Compact delivery icons and read receipts
+
+- Replaced visible delivery text with a single tick for Sent, double tick for Seen, spinning indicator for Sending, and red alert for Failed/Not confirmed, keeping the existing status position. Icons are 12px, with a 15px-wide double tick.
+- The red alert doubles as the Retry control, retaining an accessible name and explanatory tooltip. Failed and unconfirmed states remain distinct internally; retries reuse the original message ID.
+- Added authenticated, persisted read receipts. A user cannot mark their own message seen; repeated receipts do not increment revisions again. Deleted/system messages are not newly marked seen.
+- The frontend reports incoming messages only when their bubbles are visible in the focused, visible chat. Scrolling, focus changes, and rendering trigger batched checks. Merely connecting or opening a background tab does not send read receipts.
+- Added local-only offline support and a Simulate Mim viewing messages control for checking double ticks without implying a real recipient viewed anything.
+- Existing tests and new receipt ownership/idempotency, visibility/focus, and SVG state tests passed. Backend/frontend syntax and whitespace checks passed. Live two-device and browser visual testing remain necessary.
+- Requires deploying both backend and frontend, then refreshing open tabs. Changes are local and have not been pushed.
+
 ## 2026-09-07 — Delivery states, retries, replies, unsend, and reactions
 
 - Added optimistic Sending, server-confirmed Sent, Failed, and Not confirmed states for text and image messages, with Retry controls. Sent means stored by the server, not delivered to/read by another device.
@@ -129,6 +171,23 @@
 - Kept the existing Secret Chat title and used an empty image alt attribute to avoid repeating the adjacent title for screen readers.
 - Verified both local PNG assets and their HTML references. Deploy the frontend to publish these changes.
 
+## 2026-09-06 — Show the day alongside message times
+
+- Updated the shared frontend timestamp formatter for text, image, and system messages to display `Today, 12:10 AM`, `Yesterday, 11:59 PM`, or a date such as `3 Sept 2026, 12:00 PM`.
+- Both day labels and times use Asia/Dhaka, regardless of the device timezone. Labels are calculated when messages are rendered.
+- Older messages without a valid creation date retain their existing timestamp rather than showing an invented date.
+- Verified frontend syntax, today/yesterday/older dates, Dhaka midnight, a year boundary, and missing or invalid dates. Backend syntax and authentication tests also passed.
+- Deploy the frontend to display these labels. The pending multiple-origin update also requires deploying the backend and configuring Render's `FRONTEND_URL`.
+
+## 2026-09-06 — Support multiple frontend origins
+
+- Updated `backend/server.js` to accept a comma-separated list in `FRONTEND_URL` for both Express and Socket.IO CORS.
+- Preserved support for a single URL and the localhost default. Whitespace, trailing slashes, and empty list entries are removed.
+- Updated `ENV_VARIABLES.md` with multiple-origin configuration and corrected the production backend URL description.
+- Verified that both configured origins receive CORS access, an unrelated origin does not, and HTTP upload preflight permits the Authorization header. Checked single-origin and local defaults as well.
+- Backend syntax and existing authentication tests passed. Live hosted integration was not tested.
+- Deployment: push this update, set the comma-separated frontend origins in Render, and redeploy the backend. No frontend changes are required for this update.
+
 ## 2026-09-06 — Authenticate chat history and image uploads
 
 ### Changes
@@ -157,42 +216,3 @@
 This update protects the two HTTP routes. It is not a complete security audit or a claim that all security issues have been resolved.
 
 This log contains no passwords, tokens, connection strings, environment variable values, or private chat data. Keep future entries free of those values as well.
-
-## 2026-09-06 — Support multiple frontend origins
-
-- Updated `backend/server.js` to accept a comma-separated list in `FRONTEND_URL` for both Express and Socket.IO CORS.
-- Preserved support for a single URL and the localhost default. Whitespace, trailing slashes, and empty list entries are removed.
-- Updated `ENV_VARIABLES.md` with multiple-origin configuration and corrected the production backend URL description.
-- Verified that both configured origins receive CORS access, an unrelated origin does not, and HTTP upload preflight permits the Authorization header. Checked single-origin and local defaults as well.
-- Backend syntax and existing authentication tests passed. Live hosted integration was not tested.
-- Deployment: push this update, set the comma-separated frontend origins in Render, and redeploy the backend. No frontend changes are required for this update.
-
-## 2026-09-06 — Show the day alongside message times
-
-- Updated the shared frontend timestamp formatter for text, image, and system messages to display `Today, 12:10 AM`, `Yesterday, 11:59 PM`, or a date such as `3 Sept 2026, 12:00 PM`.
-- Both day labels and times use Asia/Dhaka, regardless of the device timezone. Labels are calculated when messages are rendered.
-- Older messages without a valid creation date retain their existing timestamp rather than showing an invented date.
-- Verified frontend syntax, today/yesterday/older dates, Dhaka midnight, a year boundary, and missing or invalid dates. Backend syntax and authentication tests also passed.
-- Deploy the frontend to display these labels. The pending multiple-origin update also requires deploying the backend and configuring Render's `FRONTEND_URL`.
-
-## 2026-09-08 — Add Niloy-only countdown footer
-
-- Added a compact, content-width secondary footer beneath the message composer in `frontend/index.html`.
-- Displays only `x days, x hours, x minutes`, counting down to September 24, 2026, at midnight Bangladesh time (UTC+06:00).
-- Shows the footer after successful login as `Niloy`; hides and clears it on logout or an unauthorized connection error and for other users.
-- Updates every second and stays at `0 days, 0 hours, 0 minutes` after the target date.
-- Verified frontend JavaScript syntax, countdown calculation, expiry, user visibility, and diff whitespace. Browser visual verification was not performed.
-- Deploy the frontend to publish this change.
-
-## 2026-09-08 — Enable countdown in offline preview
-
-- Updated the local, Git-ignored `frontend/offline-preview.js` adapter to start the countdown after its simulated Niloy login.
-- Open `frontend/offline-test.html` and use `a` for both username and password to preview the countdown without a backend connection.
-- Verified the adapter's JavaScript syntax. Browser visual verification was not performed.
-
-## 2026-09-08 — Move countdown into a secondary header
-
-- Moved the countdown directly below the main chat header, retaining its content-width size and Niloy-only visibility.
-- Applied a dark reddish background (`#701f2a`) and light text in both themes. Countdown target and format remain unchanged.
-- Updated the local offline preview adapter for the renamed countdown handler.
-- Verified frontend and preview JavaScript syntax and diff whitespace. Browser visual verification was not performed.

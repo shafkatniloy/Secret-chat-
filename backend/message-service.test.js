@@ -148,3 +148,22 @@ test('client reconciles acknowledgements/history, preserves pending drafts and i
   state.receive({ _id: '2', username: 'Bob' });
   assert.equal(state.pending.size, 1);
 });
+
+test('only the other user can mark a message seen; repeat receipts are idempotent', async () => {
+  const { service, rows } = fixture();
+  const message = await service.send('Alice', 'message', draft('seen'));
+  assert.equal((await service.seen('Alice', { messageIds: [message._id] })).length, 0);
+  const [seen] = await service.seen('Bob', { messageIds: [message._id, message._id] });
+  assert.equal(seen.seenBy, 'Bob');
+  assert.ok(seen.seenAt);
+  assert.equal(seen.revision, 1);
+  const [again] = await service.seen('Bob', { messageIds: [message._id] });
+  assert.equal(again.revision, 1);
+  assert.equal(rows.get(message._id).seenBy, 'Bob');
+  await assert.rejects(service.seen('Bob', { messageIds: ['invalid'] }));
+  await assert.rejects(service.seen('Bob', { messageIds: Array(51).fill(message._id) }));
+  await service.unsend('Alice', { messageId: message._id });
+  const [removed] = await service.seen('Bob', { messageIds: [message._id] });
+  assert.equal(removed.deleted, true);
+  assert.equal(removed.revision, 2);
+});
