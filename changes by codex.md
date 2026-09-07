@@ -1,5 +1,15 @@
 # Changes by Codex
 
+## 2026-09-08 — Consolidate duplicate Antigravity changelogs
+
+- Verified both Antigravity changelog files were byte-for-byte identical.
+- Kept `CHANGES_BY_ANTIGRAVITY.md`, which is already referenced by the document, and removed the duplicate `changes by antigravity.md`. No unique information was lost.
+
+## 2026-09-08 — Add standing project instructions
+
+- Added root `AGENTS.md` with the agreed rules for local-first work, explicit publishing requests, private data protection, offline testing, changelog order, security, responsive design, resource use, verification, and communication.
+- The instructions preserve user overrides and unrelated edits, and contain no credentials.
+
 ## 2026-09-08 — Keep chat chrome visible and simplify system notices
 
 - Fixed the application shell to the viewport and prevented document scrolling. The message list is the flexible scrollable area, keeping the header, countdown, and composer outside the scrolling history.
