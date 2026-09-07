@@ -174,3 +174,18 @@ This log contains no passwords, tokens, connection strings, environment variable
 - Older messages without a valid creation date retain their existing timestamp rather than showing an invented date.
 - Verified frontend syntax, today/yesterday/older dates, Dhaka midnight, a year boundary, and missing or invalid dates. Backend syntax and authentication tests also passed.
 - Deploy the frontend to display these labels. The pending multiple-origin update also requires deploying the backend and configuring Render's `FRONTEND_URL`.
+
+## 2026-09-08 — Add Niloy-only countdown footer
+
+- Added a compact, content-width secondary footer beneath the message composer in `frontend/index.html`.
+- Displays only `x days, x hours, x minutes`, counting down to September 24, 2026, at midnight Bangladesh time (UTC+06:00).
+- Shows the footer after successful login as `Niloy`; hides and clears it on logout or an unauthorized connection error and for other users.
+- Updates every second and stays at `0 days, 0 hours, 0 minutes` after the target date.
+- Verified frontend JavaScript syntax, countdown calculation, expiry, user visibility, and diff whitespace. Browser visual verification was not performed.
+- Deploy the frontend to publish this change.
+
+## 2026-09-08 — Enable countdown in offline preview
+
+- Updated the local, Git-ignored `frontend/offline-preview.js` adapter to start the countdown after its simulated Niloy login.
+- Open `frontend/offline-test.html` and use `a` for both username and password to preview the countdown without a backend connection.
+- Verified the adapter's JavaScript syntax. Browser visual verification was not performed.
