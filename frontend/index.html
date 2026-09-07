@@ -2,17 +2,24 @@
 <html>
   <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, interactive-widget=resizes-content">
     <title>আমাদের কথা</title>
     <link rel="icon" type="image/png" href="assets/favicon.png">
     <style>
       * { margin: 0; padding: 0; box-sizing: border-box; }
+      html { height: 100%; overflow: hidden; }
       
       body { 
+        position: fixed;
+        top: var(--app-top, 0px);
+        left: 0;
+        right: 0;
+        overflow: hidden;
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         height: 100vh;
         height: 100dvh;
+        height: var(--app-height, 100dvh);
         display: flex; 
         justify-content: center; 
         align-items: center;
@@ -194,6 +201,8 @@
       }
       
       #messages {
+        flex: 1 1 0;
+        overscroll-behavior-y: contain;
         min-height: 0;
         list-style-type: none;
         flex-grow: 1;
@@ -260,11 +269,13 @@
         align-self: center;
         max-width: min(90%, 480px);
         box-shadow: none;
-        background: linear-gradient(135deg, #e0e7ff 0%, #f3e8ff 100%);
-        color: #5a4a9e;
-        font-style: italic;
-        padding: 10px 14px;
-        font-size: 13px;
+        background: transparent;
+        color: #667085;
+        font-style: normal;
+        padding: 3px 8px;
+        border-radius: 0;
+        font-size: 11px;
+        line-height: 1.5;
         text-align: center;
       }
       
@@ -510,7 +521,8 @@
       body[data-theme="dark"] .chat-header { background: linear-gradient(135deg, #303977, #49316b); }
       body[data-theme="dark"] #messages li { background: #233047; color: #e2e8f0; }
       body[data-theme="dark"] #messages li.own-message { background: #37366b; }
-      body[data-theme="dark"] #messages li.system { background: #28243e; color: #d4c7f5; }
+      body[data-theme="dark"] #messages li.system { background: transparent; color: #a6b4c9; }
+      #messages li.system .system-time { font-size: 10px; margin-left: 6px; }
       body[data-theme="dark"] .message-text { color: #edf2f7; }
       body[data-theme="dark"] .message-header { color: #bdc6ff; }
       body[data-theme="dark"] .message-time,
@@ -1231,7 +1243,7 @@
         const time = formatDhakaTime(msg);
         if (time) {
           const timestamp = document.createElement('span');
-          timestamp.style.cssText = 'font-size:11px;opacity:0.8;margin-left:6px;font-weight:500;';
+          timestamp.className = 'system-time';
           timestamp.textContent = '• ' + time;
           item.appendChild(timestamp);
         }
@@ -1285,6 +1297,18 @@
       document.addEventListener('visibilitychange', () => scheduleReadReceipts());
       window.addEventListener('focus', () => scheduleReadReceipts());
       window.addEventListener('resize', () => scheduleReadReceipts());
+
+      // Keep the app inside the visible viewport when mobile keyboards open.
+      function updateAppViewport() {
+        const viewport = window.visualViewport;
+        if (viewport && viewport.scale !== 1) return;
+        document.documentElement.style.setProperty('--app-height', (viewport?.height || window.innerHeight) + 'px');
+        document.documentElement.style.setProperty('--app-top', (viewport?.offsetTop || 0) + 'px');
+      }
+      updateAppViewport();
+      window.addEventListener('resize', updateAppViewport);
+      window.visualViewport?.addEventListener('resize', updateAppViewport);
+      window.visualViewport?.addEventListener('scroll', updateAppViewport);
 
       // Focus on username input on load
       window.addEventListener('load', () => {

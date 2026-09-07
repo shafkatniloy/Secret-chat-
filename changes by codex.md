@@ -1,5 +1,13 @@
 # Changes by Codex
 
+## 2026-09-08 — Keep chat chrome visible and simplify system notices
+
+- Fixed the application shell to the viewport and prevented document scrolling. The message list is the flexible scrollable area, keeping the header, countdown, and composer outside the scrolling history.
+- Added mobile keyboard viewport handling using visualViewport resize/scroll events with a window-height fallback and a resizes-content viewport hint. Pinch zoom is not overridden.
+- Changed join/leave notices to centered 11px neutral text with 10px timestamps, transparent backgrounds, no rounded bubble, and compact padding in both themes.
+- All existing tests, frontend syntax, viewport sizing/fallback checks, and diff whitespace passed. Actual mobile keyboard and browser visual testing remain necessary.
+- Changes are local; only the frontend needs deployment.
+
 ## 2026-09-08 — Introduce the project in the GitHub README
 
 - Replaced the minimal README with a logo-first introduction to আমাদের কথা, highlighting that it is a fun personal side project.
