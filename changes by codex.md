@@ -189,3 +189,10 @@ This log contains no passwords, tokens, connection strings, environment variable
 - Updated the local, Git-ignored `frontend/offline-preview.js` adapter to start the countdown after its simulated Niloy login.
 - Open `frontend/offline-test.html` and use `a` for both username and password to preview the countdown without a backend connection.
 - Verified the adapter's JavaScript syntax. Browser visual verification was not performed.
+
+## 2026-09-08 — Move countdown into a secondary header
+
+- Moved the countdown directly below the main chat header, retaining its content-width size and Niloy-only visibility.
+- Applied a dark reddish background (`#701f2a`) and light text in both themes. Countdown target and format remain unchanged.
+- Updated the local offline preview adapter for the renamed countdown handler.
+- Verified frontend and preview JavaScript syntax and diff whitespace. Browser visual verification was not performed.

@@ -300,19 +300,19 @@
         border-top: 1px solid #e2e8f0;
       }
       
-      #countdownFooter {
+      #countdownHeader {
         align-self: center;
         width: fit-content;
         max-width: 100%;
         flex-shrink: 0;
         padding: 4px 8px;
-        color: #718096;
+        background: #701f2a;
+        color: #fff1f2;
         font-size: 12px;
         line-height: 1.4;
         font-variant-numeric: tabular-nums;
         text-align: center;
       }
-      body[data-theme="dark"] #countdownFooter { color: #b2bed0; }
 
       #input {
         min-width: 0;
@@ -611,6 +611,7 @@
           <span id="themeStatus" role="status" aria-live="polite"></span>
         </div>
       </div>
+      <header id="countdownHeader" role="timer" hidden></header>
       <div id="chatError" class="error" role="alert" style="display: none; margin: 8px 12px 0; flex-shrink: 0;"></div>
       <ul id="messages"></ul>
       <div id="replyComposer" hidden></div>
@@ -620,7 +621,6 @@
         <button type="submit">Send</button>
         <button type="button" class="upload-btn" aria-label="Upload image" title="Upload image" onclick="document.getElementById('fileInput').click()"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-link" aria-hidden="true" focusable="false"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></button>
       </form>
-      <footer id="countdownFooter" role="timer" hidden></footer>
     </div>
 
     <script src="chat-state.js"></script>
@@ -641,10 +641,10 @@
       let countdownInterval = null;
       const countdownTarget = Date.parse('2026-09-24T00:00:00+06:00');
 
-      function updateCountdownFooter() {
+      function updateCountdownHeader() {
         clearInterval(countdownInterval);
         countdownInterval = null;
-        const footer = document.getElementById('countdownFooter');
+        const footer = document.getElementById('countdownHeader');
         footer.hidden = currentUsername !== 'Niloy';
         footer.textContent = '';
         if (footer.hidden) return;
@@ -797,7 +797,7 @@
           document.getElementById('loginScreen').style.display = 'none';
           document.getElementById('chatScreen').style.display = 'flex';
           document.getElementById('currentUser').textContent = `${username}`;
-          updateCountdownFooter();
+          updateCountdownHeader();
           connectionReady = false;
           renderChat();
           document.getElementById('input').focus();
@@ -809,7 +809,7 @@
             showError('Invalid username or password.');
             socket.disconnect();
             currentUsername = null;
-            updateCountdownFooter();
+            updateCountdownHeader();
           } else showError('Cannot reach the chat server. Reconnecting…');
         });
         socket.on('history error', () => {
@@ -1198,7 +1198,7 @@
         document.getElementById('usernameInput').value = '';
         document.getElementById('passwordInput').value = '';
         currentUsername = null;
-        updateCountdownFooter();
+        updateCountdownHeader();
       }
 
       function escapeHtml(text) {
