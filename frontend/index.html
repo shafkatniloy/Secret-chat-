@@ -627,6 +627,24 @@
       #messages[data-background="gallery"] li.system,
       body[data-theme="dark"] #messages[data-background="gallery"] li.system { color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,.9); }
       #messages { background-size: cover; background-position: center; background-repeat: no-repeat; }
+      #attachmentMenu[hidden], #musicComposer[hidden] { display: none; }
+      #musicComposer { padding: 8px 12px; flex-shrink: 0; background: rgba(128,111,191,.12); }
+      #musicComposer label { display: block; font-size: 12px; margin-bottom: 5px; }
+      .music-composer-row { display: flex; gap: 6px; align-items: center; }
+      #musicLinkInput { flex: 1; min-width: 0; width: 0; padding: 10px; }
+      #musicComposer button, .music-play { border: 0; border-radius: 10px; padding: 10px; min-height: 44px; color: inherit; background: rgba(128,111,191,.2); cursor: pointer; }
+      #musicComposer button:focus-visible, .music-play:focus-visible { outline: 2px solid #667eea; outline-offset: 2px; }
+      #messages li.music-message { width: 480px; max-width: 100%; }
+      .music-card { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+      .music-label { font-size: 13px; }
+      .music-card a { color: inherit; text-decoration: underline; font-size: 12px; }
+      .music-card small { font-size: 11px; opacity: .8; }
+      .youtube-player { width: 100%; aspect-ratio: 16 / 9; min-height: 200px; display: grid; place-items: center; background: #111; color: #fff; border-radius: 10px; overflow: hidden; }
+      .youtube-player iframe { width: 100%; height: 100%; min-height: 200px; border: 0; }
+      #historyStatus { height: 26px; flex-shrink: 0; text-align: center; }
+      #historyButton { border: 0; background: transparent; color: inherit; font: inherit; font-size: 11px; min-height: 26px; padding: 4px 14px; cursor: pointer; }
+      #historyButton:disabled { cursor: default; }
+      #historyButton:focus-visible { outline: 2px solid #667eea; outline-offset: -2px; }
     </style>
   </head>
   <body>
@@ -674,17 +692,31 @@
       </div>
       <header id="countdownHeader" role="timer" hidden></header>
       <div id="chatError" class="error" role="alert" style="display: none; margin: 8px 12px 0; flex-shrink: 0;"></div>
+      <div id="historyStatus" role="status" aria-live="polite"><button id="historyButton" type="button" disabled>Loading history…</button></div>
       <ul id="messages"></ul>
       <div id="replyComposer" hidden></div>
+      <form id="musicComposer" hidden>
+        <label for="musicLinkInput">YouTube link</label>
+        <div class="music-composer-row">
+          <input id="musicLinkInput" type="text" inputmode="url" placeholder="Paste a YouTube link…" maxlength="2048" autocomplete="off" required>
+          <button type="submit">Send</button>
+          <button id="cancelMusic" type="button" aria-label="Cancel music link">×</button>
+        </div>
+      </form>
       <form id="form" onsubmit="handleSendMessage(event)">
         <input id="input" placeholder="Type a message..." autocomplete="off" />
         <input type="file" id="fileInput" accept="image/*,.gif" style="display: none;" onchange="handleFileUpload(event)" />
         <button type="submit">Send</button>
-        <button type="button" class="upload-btn" aria-label="Upload image" title="Upload image" onclick="document.getElementById('fileInput').click()"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-link" aria-hidden="true" focusable="false"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></button>
+        <button type="button" id="attachmentButton" class="upload-btn" aria-label="Attachments" title="Attachments" aria-expanded="false" aria-controls="attachmentMenu"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-link" aria-hidden="true" focusable="false"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></button>
       </form>
     </div>
 
     <script src="chat-state.js"></script>
+    <script src="youtube-links.js"></script>
+    <section id="attachmentMenu" class="message-menu" aria-label="Attachments" hidden>
+      <button id="attachImage" type="button">Send image</button>
+      <button id="attachMusic" type="button">Send music</button>
+    </section>
     <section id="iconMenu" class="message-menu" aria-label="Icon menu" hidden>
       <button id="backgroundMenuButton" type="button" aria-expanded="false" aria-controls="backgroundMenu">
         Chat background setting
@@ -866,9 +898,11 @@
           forceNew: true
         });
 
+        stopMusicPlayback(); closeAttachmentMenu(); closeMusicComposer();
         resetBackground();
         socket.on('background updated', applyBackground);
         socket.on('connect', () => {
+          resetHistory();
           currentUsername = username;
           chatState.messages.clear();
           setReply(null);
@@ -894,21 +928,25 @@
           } else showError('Cannot reach the chat server. Reconnecting…');
         });
         socket.on('history error', () => {
+          historyState.ready = true; historyState.hasMore = true; historyState.error = 'retry'; updateHistoryControl();
           connectionReady = true;
           showError('History could not load. Reconnect to refresh it; your pending messages are kept.');
         });
 
-        socket.on('load messages', (messages) => {
+        socket.on('load messages', (messages, metadata) => {
+          initializeHistory(metadata);
           messages.forEach(message => chatState.receive(message));
           connectionReady = true;
           saveOutbox();
           renderChat();
           scrollToBottom();
         });
-        for (const event of ['chat message', 'image message', 'message updated', 'user joined', 'user left']) {
+        for (const event of ['chat message', 'image message', 'music message', 'message updated', 'user joined', 'user left']) {
           socket.on(event, receiveMessage);
         }
         socket.on('disconnect', () => {
+          resetHistory();
+          stopMusicPlayback();
           connectionReady = false;
           ++themeSession;
           for (const draft of chatState.pending.values()) {
@@ -938,7 +976,7 @@
       function saveOutbox() {
         if (!chatState) return;
         try {
-          const drafts = [...chatState.pending.values()].filter(d => d.type === 'message' || d.uploadId)
+          const drafts = [...chatState.pending.values()].filter(d => d.type === 'message' || d.type === 'music' || d.uploadId)
             .map(({ file, busy, ...draft }) => draft);
           sessionStorage.setItem('chat-outbox:' + chatState.username, JSON.stringify(drafts));
         } catch { /* Keep the in-memory outbox when storage is unavailable. */ }
@@ -952,18 +990,44 @@
         renderChat();
       }
 
-      function renderChat() {
+      function renderChat(preserveScroll = false) {
         if (!chatState) return;
         const list = document.getElementById('messages');
         const nearBottom = list.scrollHeight - list.scrollTop - list.clientHeight < 100;
         const top = list.scrollTop;
-        list.replaceChildren();
+        const anchor = preserveScroll ? [...list.children].find(node => node.getBoundingClientRect().bottom > list.getBoundingClientRect().top) : null;
+        const anchorTop = anchor?.getBoundingClientRect().top;
+        const old = new Map([...list.children].map(node => [node.dataset.messageKey, node]));
+        const desired = [];
         for (const data of chatState.list()) {
-          if (data.type === 'system') displaySystemMessage(data);
-          else if (data.type === 'image' && !data.status && !data.deleted) displayImageMessage(data);
-          else displayMessage(data);
+          const key = String(data.clientId || data._id);
+          const previous = old.get(key);
+          const stamp = JSON.stringify([data, formatDhakaTime(data), data.replyTo ? chatState.messages.get(String(data.replyTo)) : null]);
+          let node = previous;
+          if (!previous || previous.dataset.renderStamp !== stamp) {
+            if (data.type === 'music' && !data.deleted) node = displayMusicMessage(data, previous?.classList.contains('music-message') ? previous : null);
+            else {
+              if (data.type === 'system') displaySystemMessage(data);
+              else if (data.type === 'image' && !data.status && !data.deleted) displayImageMessage(data);
+              else displayMessage(data);
+              node = list.lastElementChild;
+            }
+            node.dataset.messageKey = key;
+            node.dataset.renderStamp = stamp;
+          }
+          desired.push(node);
         }
-        if (nearBottom) scrollToBottom(); else list.scrollTop = top;
+        const keep = new Set(desired);
+        if (activeMusicPlayback && !keep.has(activeMusicPlayback.item)) stopMusicPlayback();
+        for (const node of [...list.children]) if (!keep.has(node)) node.remove();
+        let cursor = list.firstChild;
+        for (const node of desired) {
+          if (node !== cursor) list.insertBefore(node, cursor);
+          cursor = node.nextSibling;
+        }
+        if (anchor?.isConnected) list.scrollTop += anchor.getBoundingClientRect().top - anchorTop;
+        else if (!preserveScroll && nearBottom) scrollToBottom();
+        else list.scrollTop = top;
         scheduleReadReceipts();
       }
 
@@ -974,7 +1038,7 @@
         panel.hidden = !data;
         if (data) {
           const label = document.createElement('span');
-          label.textContent = 'Replying to ' + data.username + ': ' + (data.type === 'image' ? 'Photo' : data.message || '').slice(0, 160);
+          label.textContent = 'Replying to ' + data.username + ': ' + (data.type === 'image' ? 'Photo' : data.type === 'music' ? 'YouTube music' : data.message || '').slice(0, 160);
           const cancel = document.createElement('button');
           cancel.type = 'button'; cancel.textContent = '×'; cancel.setAttribute('aria-label', 'Cancel reply');
           cancel.onclick = () => setReply(null);
@@ -986,7 +1050,7 @@
       function newDraft(type, values) {
         const draft = { username: currentUsername, clientId: crypto.randomUUID(), type,
           createdAt: new Date().toISOString(), replyTo: replyTarget?._id || null,
-          replyPreview: replyTarget ? { username: replyTarget.username, text: replyTarget.type === 'image' ? 'Photo' : replyTarget.message } : null,
+          replyPreview: replyTarget ? { username: replyTarget.username, text: replyTarget.type === 'image' ? 'Photo' : replyTarget.type === 'music' ? 'YouTube music' : replyTarget.message } : null,
           status: 'Sending…', ...values };
         chatState.pending.set(draft.clientId, draft);
         setReply(null);
@@ -1025,7 +1089,7 @@
           }
           saveOutbox();
           const payload = { clientId: draft.clientId, message: draft.message, uploadId: draft.uploadId, replyTo: draft.replyTo };
-          connection.timeout(15000).emit(draft.type === 'image' ? 'image message' : 'chat message', payload, (err, result) => {
+          connection.timeout(15000).emit(draft.type === 'image' ? 'image message' : draft.type === 'music' ? 'music message' : 'chat message', payload, (err, result) => {
             draft.busy = false;
             if (state !== chatState) return;
             if (result?.ok && result.message) receiveMessage(result.message);
@@ -1154,7 +1218,7 @@
           const original = chatState?.messages.get(String(data.replyTo));
           const quote = document.createElement('button');
           quote.type = 'button'; quote.className = 'reply-quote';
-          const preview = original ? { username: original.username, text: original.deleted ? 'Message deleted' : original.type === 'image' ? 'Photo' : original.message } : data.replyPreview;
+          const preview = original ? { username: original.username, text: original.deleted ? 'Message deleted' : original.type === 'image' ? 'Photo' : original.type === 'music' ? 'YouTube music' : original.message } : data.replyPreview;
           quote.textContent = (preview?.username ? preview.username + ': ' : '') + String(preview?.text || 'Original message unavailable').slice(0, 200);
           quote.onclick = () => {
             const target = document.getElementById('message-' + data.replyTo);
@@ -1215,7 +1279,7 @@
         details.addEventListener('toggle', () => {
           if (details.open) {
             if (activeMessageMenu && activeMessageMenu !== details) activeMessageMenu.open = false;
-            closeIconMenu();
+            closeIconMenu(); closeAttachmentMenu();
             activeMessageMenu = details;
             positionMessageMenu(details);
           }
@@ -1281,7 +1345,7 @@
         item.className = data.username === currentUsername ? 'own-message' : 'incoming-message';
         const text = document.createElement('div');
         text.className = 'message-text';
-        text.textContent = data.deleted ? 'This message was deleted' : data.type === 'image' ? 'Photo' : data.message || '';
+        text.textContent = data.deleted ? 'This message was deleted' : data.type === 'image' ? 'Photo' : data.type === 'music' ? 'YouTube music' : data.message || '';
         item.append(messageHeader(data), text);
         if (data._id || data.clientId) decorateMessage(item, data);
         document.getElementById('messages').appendChild(item);
@@ -1350,6 +1414,8 @@
       }
 
       function handleLogout() {
+        resetHistory();
+        stopMusicPlayback(); closeAttachmentMenu(); closeMusicComposer();
         resetBackground();
         ++themeSession;
         connectionReady = false;
@@ -1453,7 +1519,7 @@
       }
       iconMenuButton.addEventListener('click', () => {
         if (!iconMenu.hidden) { closeIconMenu(); return; }
-        closeMessageMenu();
+        closeMessageMenu(); closeAttachmentMenu();
         iconMenu.hidden = false;
         iconMenuButton.setAttribute('aria-expanded', 'true');
         positionMessageMenu({ querySelector: selector => selector === '.message-menu' ? iconMenu : iconMenuButton });
@@ -1557,6 +1623,163 @@
         event.target.value = '';
         if (file) changeBackground('gallery', file);
       });
+
+      const attachmentMenu = document.getElementById('attachmentMenu');
+      const attachmentButton = document.getElementById('attachmentButton');
+      const musicComposer = document.getElementById('musicComposer');
+      function closeAttachmentMenu() {
+        attachmentMenu.hidden = true;
+        attachmentButton.setAttribute('aria-expanded', 'false');
+      }
+      function closeMusicComposer() {
+        musicComposer.hidden = true;
+        document.getElementById('musicLinkInput').value = '';
+      }
+      attachmentButton.addEventListener('click', () => {
+        if (!attachmentMenu.hidden) { closeAttachmentMenu(); return; }
+        closeIconMenu(); closeMessageMenu();
+        attachmentMenu.hidden = false;
+        attachmentButton.setAttribute('aria-expanded', 'true');
+        positionMessageMenu({ querySelector: selector => selector === '.message-menu' ? attachmentMenu : attachmentButton });
+      });
+      document.getElementById('attachImage').addEventListener('click', () => {
+        closeAttachmentMenu(); closeMusicComposer(); document.getElementById('fileInput').click();
+      });
+      document.getElementById('attachMusic').addEventListener('click', () => {
+        closeAttachmentMenu(); musicComposer.hidden = false;
+        document.getElementById('musicLinkInput').focus();
+      });
+      document.getElementById('cancelMusic').addEventListener('click', () => { closeMusicComposer(); attachmentButton.focus(); });
+      musicComposer.addEventListener('submit', event => {
+        event.preventDefault();
+        const input = document.getElementById('musicLinkInput');
+        if (!input.value.trim() || !currentUsername) return;
+        if (input.value.length > 2048) { showError('Music links must be 2048 characters or fewer.'); return; }
+        newDraft('music', { message: input.value.trim() });
+        closeMusicComposer(); document.getElementById('input').focus();
+      });
+      document.addEventListener('click', event => {
+        if (!attachmentMenu.contains(event.target) && !attachmentButton.contains(event.target)) closeAttachmentMenu();
+      });
+      document.addEventListener('keydown', event => {
+        if (event.key !== 'Escape') return;
+        if (!attachmentMenu.hidden) { closeAttachmentMenu(); attachmentButton.focus(); }
+        else if (!musicComposer.hidden && musicComposer.contains(event.target)) { closeMusicComposer(); attachmentButton.focus(); }
+      });
+      window.addEventListener('resize', closeAttachmentMenu);
+      window.visualViewport?.addEventListener('resize', closeAttachmentMenu);
+      window.visualViewport?.addEventListener('scroll', closeAttachmentMenu);
+
+      function displayMusicMessage(data, existing) {
+        const item = existing || document.createElement('li');
+        const parsed = YouTubeLinks.parse(data.message);
+        item.className = (data.username === currentUsername ? 'own-message' : 'incoming-message') + ' music-message';
+        // Keep the player attached while rebuilding reply/status/action controls.
+        const card = existing?.querySelector('.music-card') || document.createElement('div');
+        if (!existing) {
+          card.className = 'music-card';
+          const label = document.createElement('div'); label.className = 'music-label';
+          label.textContent = parsed ? 'YouTube · starts at ' + Math.floor(parsed.start / 60) + ':' + String(parsed.start % 60).padStart(2, '0') : 'Not playable · use a valid YouTube video link';
+          card.appendChild(label);
+          if (parsed) {
+            const host = document.createElement('div'); host.className = 'youtube-player';
+            const play = document.createElement('button'); play.type = 'button'; play.className = 'music-play';
+            play.textContent = '▶ Play on YouTube';
+            play.onclick = () => {
+              if (localPreview) { label.textContent = 'Offline preview · YouTube playback requires the hosted app.'; return; }
+              if (host.clientWidth < 200) { label.textContent = 'Open on YouTube or use a wider screen to play.'; return; }
+              stopMusicPlayback();
+              const frame = document.createElement('iframe');
+              frame.title = 'YouTube music video';
+              frame.allow = 'autoplay; encrypted-media; picture-in-picture; fullscreen';
+              frame.allowFullscreen = true;
+              frame.referrerPolicy = 'strict-origin-when-cross-origin';
+              frame.src = 'https://www.youtube.com/embed/' + parsed.videoId + '?autoplay=1&playsinline=1&start=' + parsed.start;
+              host.replaceChildren(frame);
+              activeMusicPlayback = { item, stop() { host.replaceChildren(play); } };
+            };
+            host.appendChild(play);
+            const link = document.createElement('a'); link.href = parsed.url; link.target = '_blank'; link.rel = 'noopener noreferrer';
+            link.textContent = 'Open on YouTube';
+            const note = document.createElement('small'); note.textContent = 'If embedding is unavailable, open on YouTube.';
+            card.append(host, link, note);
+          } else {
+            const value = document.createElement('div'); value.className = 'message-text'; value.textContent = data.message || '';
+            card.appendChild(value);
+          }
+        }
+        for (const child of [...item.children]) if (child !== card) child.remove();
+        item.prepend(messageHeader(data));
+        if (!existing) item.appendChild(card);
+        if (data._id || data.clientId) decorateMessage(item, data);
+        if (!existing) document.getElementById('messages').appendChild(item);
+        return item;
+      }
+
+      let activeMusicPlayback = null;
+      function stopMusicPlayback() {
+        activeMusicPlayback?.stop();
+        activeMusicPlayback = null;
+      }
+      document.addEventListener('visibilitychange', () => { if (document.hidden) stopMusicPlayback(); });
+      document.getElementById('messages').addEventListener('scroll', () => {
+        if (!activeMusicPlayback) return;
+        const rect = activeMusicPlayback.item.querySelector('.youtube-player').getBoundingClientRect();
+        const area = document.getElementById('messages').getBoundingClientRect();
+        if (rect.bottom <= area.top || rect.top >= area.bottom) stopMusicPlayback();
+      }, { passive: true });
+
+      let historyState = { ready: false, busy: false, cursor: null, hasMore: false, error: '' };
+      function resetHistory() {
+        historyState = { ready: false, busy: false, cursor: null, hasMore: false, error: '' };
+        updateHistoryControl();
+      }
+      function initializeHistory(metadata) {
+        const state = historyState;
+        state.cursor = metadata?.cursor || null;
+        state.hasMore = !!metadata?.hasMore;
+        state.error = '';
+        // Let the initial scroll-to-bottom finish before enabling top-edge loading.
+        setTimeout(() => {
+          if (historyState !== state) return;
+          state.ready = true; updateHistoryControl();
+        }, 75);
+      }
+      function updateHistoryControl() {
+        const button = document.getElementById('historyButton');
+        const list = document.getElementById('messages');
+        button.style.visibility = list.scrollTop < 80 || historyState.busy || historyState.error ? 'visible' : 'hidden';
+        button.disabled = !socket?.connected || !historyState.ready || historyState.busy || !historyState.hasMore;
+        button.textContent = historyState.busy ? 'Loading older messages…' : historyState.error ? 'Could not load older messages · Retry'
+          : !historyState.ready ? 'Loading history…' : historyState.hasMore ? 'Load older messages' : 'Beginning of conversation';
+      }
+      async function loadOlderMessages() {
+        const state = historyState, connection = socket, chat = chatState;
+        if (!state.ready || state.busy || !state.hasMore || !connection?.connected || !chat) return;
+        state.busy = true; state.error = ''; updateHistoryControl();
+        try {
+          const page = await new Promise((resolve, reject) => {
+            connection.timeout(15000).emit('older messages', { cursor: state.cursor }, (error, result) => {
+              if (error || !result?.ok || !Array.isArray(result.messages)) reject(new Error('History unavailable'));
+              else resolve(result);
+            });
+          });
+          if (historyState !== state || socket !== connection || chatState !== chat) return;
+          for (const message of page.messages) chat.receive(message);
+          state.cursor = page.cursor;
+          state.hasMore = !!page.hasMore && !!page.cursor;
+          renderChat(true);
+        } catch {
+          if (historyState === state) state.error = 'retry';
+        } finally {
+          if (historyState === state) { state.busy = false; updateHistoryControl(); }
+        }
+      }
+      document.getElementById('historyButton').addEventListener('click', loadOlderMessages);
+      document.getElementById('messages').addEventListener('scroll', () => {
+        updateHistoryControl();
+        if (document.getElementById('messages').scrollTop < 40 && !historyState.error) loadOlderMessages();
+      }, { passive: true });
 
       // Focus on username input on load
       window.addEventListener('load', () => {

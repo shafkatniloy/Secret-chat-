@@ -11,6 +11,7 @@ const { isTrustedImageUrl } = require('./image-security');
 const { createMessageService, registerMessageHandlers } = require('./message-service');
 const { createBackgroundService, registerBackgroundHandlers } = require('./background-service');
 const { createImageLifecycle } = require('./image-lifecycle');
+const { createHistoryService, registerHistoryHandlers } = require('./history-service');
 require('dotenv').config();
 
 const app = express();
@@ -61,7 +62,7 @@ cloudinary.config({
 const messageSchema = new mongoose.Schema({
   type: {
     type: String,
-    enum: ['message', 'image', 'system'],
+    enum: ['message', 'image', 'music', 'system'],
     required: true
   },
   username: String,
@@ -82,6 +83,7 @@ const messageSchema = new mongoose.Schema({
   }
 });
 
+messageSchema.index({ createdAt: -1, _id: -1 });
 messageSchema.index({ username: 1, clientId: 1 }, {
   unique: true, partialFilterExpression: { clientId: { $type: 'string' } }
 });
@@ -114,6 +116,8 @@ const messageService = createMessageService({ Message, ImageUpload, cloudName: p
   getTime: getDhakaTime, withImageUse: imageLifecycle.withImageUse });
 const backgroundService = createBackgroundService({ Setting: ChatBackground, ImageUpload,
   cloudName: process.env.CLOUDINARY_CLOUD_NAME, ...imageLifecycle });
+
+const historyService = createHistoryService({ Message, present: messageService.present });
 
 // Setup multer with Cloudinary storage
 const storage = new CloudinaryStorage({
@@ -208,7 +212,7 @@ app.use((err, req, res, next) => {
 app.get('/api/messages', requireAuth, async (req, res) => {
   try {
     const messages = await Message.find()
-      .sort({ createdAt: -1 })
+      .sort({ createdAt: -1, _id: -1 })
       .limit(200);
     res.json(await messageService.present(messages.reverse()));
   } catch (err) {
@@ -291,6 +295,7 @@ io.on('connection', async (socket) => {
   userSockets.add(socket.id);
   
   registerMessageHandlers(socket, io, messageService);
+  registerHistoryHandlers(socket, historyService);
   registerBackgroundHandlers(socket, io, backgroundService);
 
   socket.on('disconnect', async () => {
@@ -322,10 +327,8 @@ io.on('connection', async (socket) => {
   });
   // Send chat history to the connected user (latest 200 messages in chronological order)
   try {
-    const messages = await Message.find()
-      .sort({ createdAt: -1 })
-      .limit(200);
-    if (socket.connected) socket.emit('load messages', await messageService.present(messages.reverse()));
+    const page = await historyService.page();
+    if (socket.connected) socket.emit('load messages', page.messages, { cursor: page.cursor, hasMore: page.hasMore });
   } catch (err) {
     console.error('❌ Error loading messages:', err.message);
     socket.emit('history error');

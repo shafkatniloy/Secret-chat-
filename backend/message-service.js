@@ -1,4 +1,5 @@
 const { resolveImageUpload, safeHistoryMessage } = require('./image-security');
+const YouTubeLinks = require('../frontend/youtube-links');
 const REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
 const objectId = value => typeof value === 'string' && /^[a-f0-9]{24}$/i.test(value);
 
@@ -16,7 +17,7 @@ function createMessageService({ Message, ImageUpload, cloudName, getTime, withIm
         const original = byId.get(String(m.replyTo));
         m.replyPreview = {
           username: original?.username || '',
-          text: !original || original.deleted ? 'Message deleted' : original.type === 'image' ? 'Photo' : String(original.message || '').slice(0, 200)
+          text: !original || original.deleted ? 'Message deleted' : original.type === 'image' ? 'Photo' : original.type === 'music' ? 'YouTube music' : String(original.message || '').slice(0, 200)
         };
       }
     }
@@ -39,12 +40,15 @@ function createMessageService({ Message, ImageUpload, cloudName, getTime, withIm
           throw new Error('Messages must contain 1–10000 characters.');
         }
         values.message = data.message;
+      } else if (type === 'music') {
+        if (typeof data.message !== 'string' || !data.message.trim() || data.message.length > 2048) throw new Error('Invalid music link. Use up to 2048 characters.');
+        values.message = YouTubeLinks.parse(data.message)?.url || data.message.trim();
       } else if (type === 'image') {
         Object.assign(values, await resolveImageUpload(ImageUpload, username, data, cloudName));
       } else throw new Error('Invalid message type.');
       if (data.replyTo != null) {
         if (!objectId(data.replyTo)) throw new Error('Invalid reply target.');
-        const target = await Message.findOne({ _id: data.replyTo, deleted: { $ne: true }, type: { $in: ['message', 'image'] } });
+        const target = await Message.findOne({ _id: data.replyTo, deleted: { $ne: true }, type: { $in: ['message', 'image', 'music'] } });
         if (!target) throw new Error('That message is no longer available to reply to.');
         values.replyTo = target._id;
       }
@@ -64,7 +68,7 @@ function createMessageService({ Message, ImageUpload, cloudName, getTime, withIm
 
   async function unsend(username, data) {
     if (!objectId(data?.messageId)) throw new Error('Invalid message.');
-    const key = { _id: data.messageId, username, type: { $in: ['message', 'image'] } };
+    const key = { _id: data.messageId, username, type: { $in: ['message', 'image', 'music'] } };
     const message = await Message.findOneAndUpdate({ ...key, deleted: { $ne: true } }, {
       $set: { deleted: true, reactions: {} },
       $unset: { message: '', imagePath: '', imagePublicId: '', replyTo: '' },
@@ -82,7 +86,7 @@ function createMessageService({ Message, ImageUpload, cloudName, getTime, withIm
     const field = 'reactions.' + Buffer.from(username).toString('hex');
     const update = data.emoji === null ? { $unset: { [field]: '' } }
       : { $set: { [field]: { username, emoji: data.emoji } } };
-    const message = await Message.findOneAndUpdate({ _id: data.messageId, deleted: { $ne: true }, type: { $in: ['message', 'image'] } },
+    const message = await Message.findOneAndUpdate({ _id: data.messageId, deleted: { $ne: true }, type: { $in: ['message', 'image', 'music'] } },
       { ...update, $inc: { revision: 1 } }, { new: true, runValidators: true });
     if (!message) throw new Error('That message is no longer available.');
     return message;
@@ -93,9 +97,9 @@ function createMessageService({ Message, ImageUpload, cloudName, getTime, withIm
     }
     const changed = await Promise.all([...new Set(data.messageIds)].map(async _id =>
       await Message.findOneAndUpdate({ _id, username: { $ne: username }, deleted: { $ne: true },
-        type: { $in: ['message', 'image'] }, seenBy: { $ne: username } },
+        type: { $in: ['message', 'image', 'music'] }, seenBy: { $ne: username } },
       { $set: { seenBy: username, seenAt: new Date() }, $inc: { revision: 1 } }, { new: true }) ||
-      await Message.findOne({ _id, username: { $ne: username }, type: { $in: ['message', 'image'] } })
+      await Message.findOne({ _id, username: { $ne: username }, type: { $in: ['message', 'image', 'music'] } })
     ));
     return changed.filter(Boolean);
   }
@@ -116,6 +120,7 @@ function registerMessageHandlers(socket, io, service) {
     }
   });
   handle('chat message', (username, data) => service.send(username, 'message', data), 'chat message');
+  handle('music message', (username, data) => service.send(username, 'music', data), 'music message');
   handle('image message', (username, data) => service.send(username, 'image', data), 'image message');
   handle('unsend message', service.unsend, 'message updated');
   handle('react message', service.react, 'message updated');

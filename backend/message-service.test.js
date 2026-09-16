@@ -186,3 +186,27 @@ test('image saves run inside the use guard, while saved retries bypass it', asyn
   assert.equal(calls, 1);
   assert.equal(rows.size, 1);
 });
+
+test('music messages persist timestamps, deduplicate, and support replies, reactions, receipts and unsend', async () => {
+  const { service, rows } = fixture();
+  const data = draft('song', 'https://youtu.be/dQw4w9WgXcQ?t=1m30s');
+  const song = await service.send('Alice', 'music', data);
+  assert.equal(song.message, 'https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=90');
+  assert.equal(song.type, 'music');
+  assert.equal((await service.send('Alice', 'music', data))._id, song._id);
+  assert.equal(rows.size, 1);
+  const reply = await service.send('Bob', 'message', { ...draft('song-reply'), replyTo: song._id });
+  assert.equal((await service.present([reply]))[0].replyPreview.text, 'YouTube music');
+  const reacted = await service.react('Bob', { messageId: song._id, emoji: '❤️' });
+  assert.equal(Object.values(reacted.reactions)[0].emoji, '❤️');
+  assert.equal((await service.seen('Bob', { messageIds: [song._id] }))[0].seenBy, 'Bob');
+  await assert.rejects(service.unsend('Bob', { messageId: song._id }));
+  assert.equal((await service.unsend('Alice', { messageId: song._id })).message, undefined);
+});
+
+test('music rejects invalid payload sizes/types and keeps unsupported links as inert text', async () => {
+  const { service } = fixture();
+  for (const message of [null, {}, '', ' ', 'x'.repeat(2049)]) await assert.rejects(service.send('Alice', 'music', draft('bad-song', message)));
+  const row = await service.send('Alice', 'music', draft('unsupported', 'javascript:alert(1)'));
+  assert.equal(row.message, 'javascript:alert(1)');
+});

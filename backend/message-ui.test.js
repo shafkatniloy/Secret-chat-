@@ -81,8 +81,8 @@ test('an old callback cannot change another user’s conversation', async () => 
 test('message handlers and disconnect cleanup are registered before history awaits', () => {
   const server = fs.readFileSync(path.join(__dirname, 'server.js'), 'utf8');
   const connection = server.slice(server.indexOf("io.on('connection'"));
-  assert(connection.indexOf('registerMessageHandlers(') < connection.indexOf('await Message.find()'));
-  assert(connection.indexOf("socket.on('disconnect'") < connection.indexOf('await Message.find()'));
+  assert(connection.indexOf('registerMessageHandlers(') < connection.indexOf('await historyService.page()'));
+  assert(connection.indexOf("socket.on('disconnect'") < connection.indexOf('await historyService.page()'));
 });
 
 test('read receipts require focus and visible incoming message bubbles', () => {
@@ -151,4 +151,19 @@ test('message popup stays within mobile and desktop viewport edges', () => {
       assert(y + 180 <= viewport.offsetTop + viewport.height - 8);
     }
   }
+});
+
+test('music retries retain the link and use the music event with the same client ID', async () => {
+  const { context, calls, state } = fixture();
+  const draft = { clientId: 'music-client-id', type: 'music', message: 'https://youtu.be/dQw4w9WgXcQ?t=90', username: 'Alice' };
+  state.pending.set(draft.clientId, draft);
+  await context.sendDraft(draft);
+  assert.equal(calls[0].event, 'music message');
+  calls[0].callback(new Error('timeout'));
+  context.openChatState('Bob'); context.openChatState('Alice');
+  const restored = context.chatState.pending.get(draft.clientId);
+  assert.equal(restored.message, draft.message);
+  await context.sendDraft(restored);
+  assert.equal(calls[1].event, 'music message');
+  assert.equal(calls[1].data.clientId, calls[0].data.clientId);
 });

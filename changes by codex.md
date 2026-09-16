@@ -1,5 +1,16 @@
 # Changes by Codex
 
+## 2026-09-17 — Glass attachment menu and timestamped YouTube music messages
+
+- Converted the composer link button into an Attachments menu using the existing glass popup styles. Added Send image (the existing image picker) and Send music (a labeled YouTube link field with adjacent Send and Cancel controls). Menus support outside-click/Escape dismissal and viewport positioning.
+- Added persisted music messages with a click-to-load visible YouTube embed, responsive 16:9 sizing with a 200px minimum height, timestamp support for watch/short/embed/Shorts/live links, and a canonical Open on YouTube fallback. Only the URL is stored; no media is downloaded or uploaded to Render/Cloudinary. Official embed behavior follows https://developers.google.com/youtube/player_parameters.
+- Unsupported or malformed links render inert text with a Not playable notice. YouTube itself displays availability/embedding errors for valid video links; the external fallback remains available. Playback is not guaranteed for private, removed, region-restricted, or embedding-disabled videos, and browsers may require another press of the native Play control.
+- Extended authenticated message validation, persistence, replies, unsend ownership, reactions, receipts, outbox restoration, and retry deduplication to music. Added a shared strict URL/timestamp parser in `frontend/youtube-links.js`, also required by the backend.
+- Reconciled chat nodes instead of replacing the whole history on each update, preserving attached players through ordinary messages, reactions, and receipts. One player runs at a time; playback stops on unsend/removal, logout, disconnect, tab hiding, or scrolling fully out of the chat viewport.
+- Updated the Git-ignored offline adapter for simulated music messages. Offline preview shows the actual menu/cards and timestamp handling but intentionally does not load YouTube.
+- All backend tests passed, including link/timestamp validation, unsafe links, music persistence and actions, retries, click-only embeds, offline behavior, and player preservation/removal. Frontend/backend/adapter syntax and diff whitespace passed. Browser visual/mobile checks and live YouTube/two-device integration remain unverified.
+- Local only; nothing committed, pushed, or deployed. Deploy backend and frontend together, including `frontend/youtube-links.js` in both deployment checkouts, then refresh open tabs. Existing messages need no migration; old backend versions do not support the new music type.
+
 ## 2026-09-17 — Orbiting glow on the Icon menu border
 
 - Added a blue/lavender-to-white highlight that travels around the header icon border every three seconds, with a soft blue outer glow. The icon image stays still and the decorative ring does not intercept clicks.
