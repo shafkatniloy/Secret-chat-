@@ -5,13 +5,15 @@ const { createBackgroundService, registerBackgroundHandlers } = require('./backg
 function fixture() {
   let row = null;
   const uploads = new Map();
-  const service = createBackgroundService({ cloudName: 'test-cloud',
+  const cleaned = [];
+  const service = createBackgroundService({ cloudName: 'test-cloud', cleanupImage: async url => cleaned.push(url),
     Setting: {
       async findById() { return row; },
       async findOneAndUpdate(filter, update) {
         assert.equal(filter._id, 'shared');
+        const previous = row;
         row = { ...update.$set, revision: (row?.revision || 0) + update.$inc.revision };
-        return row;
+        return previous;
       }
     },
     ImageUpload: { async findOne(query) {
@@ -19,7 +21,7 @@ function fixture() {
       return upload?.username === query.username ? upload : null;
     } }
   });
-  return { service, uploads };
+  return { service, uploads, cleaned };
 }
 
 test('background is shared, persists across reads, and revisions increase', async () => {
@@ -77,7 +79,28 @@ test('simultaneous first saves recover from the singleton creation race', async 
   const service = createBackgroundService({ Setting: { async findOneAndUpdate(filter, update, options) {
     if (++calls === 1) throw Object.assign(new Error('duplicate'), { code: 11000 });
     assert.equal(options.upsert, false);
-    return { ...update.$set, revision: 2 };
+    return { preset: 'current', revision: 1 };
   } } });
   assert.deepEqual(await service.set('Alice', { preset: 'dark' }), { preset: 'dark', imagePath: null, revision: 2 });
+});
+
+test('replacement cleans the old gallery URL only after saving; presets also clean it', async () => {
+  const { service, uploads, cleaned } = fixture();
+  const first = 'a'.repeat(24), second = 'b'.repeat(24);
+  const url = name => `https://res.cloudinary.com/test-cloud/image/upload/${name}.jpg`;
+  uploads.set(first, { username: 'Alice', url: url('first'), publicId: 'first' });
+  uploads.set(second, { username: 'Alice', url: url('second'), publicId: 'second' });
+  await service.set('Alice', { preset: 'gallery', uploadId: first });
+  await service.set('Alice', { preset: 'gallery', uploadId: first });
+  assert.deepEqual(cleaned, []);
+  await service.set('Alice', { preset: 'gallery', uploadId: second });
+  assert.deepEqual(cleaned, [url('first')]);
+  await service.set('Bob', { preset: 'dark' });
+  assert.deepEqual(cleaned, [url('first'), url('second')]);
+});
+
+test('failed background save never cleans the previous image', async () => {
+  const service = createBackgroundService({ Setting: { async findOneAndUpdate() { throw new Error('DB down'); } },
+    cleanupImage() { assert.fail('Must not clean before save'); } });
+  await assert.rejects(service.set('Alice', { preset: 'current' }));
 });

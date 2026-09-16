@@ -599,9 +599,22 @@
       .delivery-sending { animation: delivery-spin .8s linear infinite; }
       @keyframes delivery-spin { to { transform: rotate(360deg); } }
       @media (prefers-reduced-motion: reduce) { .delivery-sending { animation: none; } }
-      #iconMenuButton { display: flex; align-items: center; justify-content: center; flex: 0 0 auto; min-width: 40px; min-height: 40px; padding: 0; border: 0; border-radius: 12px; background: transparent; cursor: pointer; }
-      #iconMenuButton:focus-visible { outline: 2px solid white; outline-offset: 2px; }
-      #iconMenuButton:hover { background: rgba(255,255,255,.12); }
+      #iconMenuButton { position: relative; box-shadow: 0 0 9px rgba(67,151,255,.5); display: flex; align-items: center; justify-content: center; flex: 0 0 auto; width: 50px; height: 50px; padding: 2px; border: 3px solid transparent; border-radius: 50%; background: linear-gradient(#252839, #252839) padding-box, linear-gradient(35deg, #268bff 15%, #549eff 48%, #c0acff 90%) border-box; cursor: pointer; }
+      #iconMenuButton::after {
+        content: ''; position: absolute; inset: -3px; padding: 3px; border-radius: 50%; pointer-events: none;
+        background: conic-gradient(from 0deg, transparent 0deg 200deg, rgba(99,166,255,.35) 255deg, #d5c7ff 310deg, #fff 335deg, transparent 360deg);
+        -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+        -webkit-mask-composite: xor;
+        mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+        mask-composite: exclude;
+        animation: icon-border-orbit 3s linear infinite;
+      }
+      @keyframes icon-border-orbit { to { transform: rotate(360deg); } }
+      @media (prefers-reduced-motion: reduce) { #iconMenuButton::after { animation: none; } }
+      #iconMenuButton .chat-logo { border-radius: 50%; }
+      #iconMenuButton:focus-visible { outline: 2px solid white; outline-offset: 3px; }
+      #iconMenuButton:hover { filter: brightness(1.12); }
+      @media (max-width: 768px) { #iconMenuButton { width: 40px; height: 40px; } }
       #iconMenu[hidden], #backgroundMenu[hidden] { display: none; }
       #backgroundMenu h2 { font-size: 15px; padding: 6px 8px; margin: 0; }
       #backgroundMenu p { font-size: 12px; padding: 0 8px; margin: 0; }
@@ -620,7 +633,7 @@
     <!-- Login Screen -->
     <div id="loginScreen" class="login-container">
       <h1><img class="login-logo" src="assets/logo.png" alt="Secret Chat" width="160" height="160"></h1>
-      <p class="login-subtitle">Private and secure messaging</p>
+      <p class="login-subtitle">মেসেজ দেওয়া বাধ্যতামূলক </p>
       <div id="errorMessage" class="error" style="display: none;"></div>
       <form id="loginForm" onsubmit="handleLogin(event)">
         <input 

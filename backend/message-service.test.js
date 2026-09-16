@@ -167,3 +167,22 @@ test('only the other user can mark a message seen; repeat receipts are idempoten
   assert.equal(removed.deleted, true);
   assert.equal(removed.revision, 2);
 });
+
+test('image saves run inside the use guard, while saved retries bypass it', async () => {
+  const { Message, rows } = fixture();
+  let guarded = false, calls = 0;
+  const originalSave = Message.findOneAndUpdate;
+  Message.findOneAndUpdate = async (...args) => { assert(guarded); return originalSave(...args); };
+  const service = createMessageService({ Message, cloudName: 'test', getTime: () => '12:00 PM',
+    ImageUpload: { async findOne() { assert(guarded); return { url: 'https://res.cloudinary.com/test/image/upload/photo.jpg', publicId: 'photo' }; } },
+    async withImageUse(username, data, work) {
+      assert.equal(username, 'Alice'); calls++; guarded = true;
+      try { return await work(); } finally { guarded = false; }
+    } });
+  const data = { ...draft('guarded-image'), uploadId: 'f'.repeat(24) };
+  const first = await service.send('Alice', 'image', data);
+  const retry = await service.send('Alice', 'image', data);
+  assert.equal(first._id, retry._id);
+  assert.equal(calls, 1);
+  assert.equal(rows.size, 1);
+});

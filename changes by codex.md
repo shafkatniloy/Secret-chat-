@@ -1,5 +1,27 @@
 # Changes by Codex
 
+## 2026-09-17 — Orbiting glow on the Icon menu border
+
+- Added a blue/lavender-to-white highlight that travels around the header icon border every three seconds, with a soft blue outer glow. The icon image stays still and the decorative ring does not intercept clicks.
+- Reduced-motion settings show a static highlight. Existing mobile sizing, focus outline, and menu behavior are preserved.
+- CSS-only change; diff whitespace check passed. Browser visual checks remain unverified. Refresh the offline preview to inspect.
+- Local only; not committed or pushed. Frontend deployment and tab refresh are required.
+
+## 2026-09-17 — Circular gradient border for the header icon
+
+- Added a 3px blue-to-lavender circular border and dark inset around the Icon menu button to match the supplied reference. Rounded the image, retained a visible keyboard focus outline, and kept the mobile button at 40px.
+- CSS-only change; diff whitespace check passed. Browser visual checks remain unverified. Refresh the offline preview to inspect.
+- Local only; not committed or pushed. Frontend deployment and open-tab refresh are required.
+
+## 2026-09-17 — Clean up replaced gallery backgrounds safely
+
+- After successfully saving a replacement background (including default presets), clean up the previous gallery asset in Cloudinary with cache invalidation and remove its upload record only after deletion is confirmed. Obtain the previous setting atomically so concurrent replacements do not lose track of retired images.
+- Preserve assets referenced by any stored message by URL or public ID, or by the current shared background. MongoDB upload-use counters and deletion claims protect concurrent image-message saves and background selections across server processes; deferred cleanup runs when the final active use finishes. Saved message retries still use the existing deduplication path.
+- Cleanup errors do not roll back the saved background. Failed/uncertain deletions retain a blocked upload record for manual retry/review; interrupted use guards also favor retaining assets. No scheduled retry job or historical orphan sweep was added, and no live Cloudinary deletions were performed.
+- Updated the Git-ignored offline adapter to release replaced preview image URLs only when no preview message references them.
+- Backend suite passed, including retirement, preset changes, same-image reuse, failed saves, referenced/current-image preservation, concurrent use, ownership, cleanup failures, and guarded image retry tests. Backend/adapter syntax and diff whitespace passed. Live MongoDB/Cloudinary deletion and two-device integration remain unverified.
+- Local only; not committed or pushed. Deploy the backend to activate cleanup. Existing upload records are compatible with the new optional guard fields; deploy/restart all backend instances together so older processes cannot bypass guards. Historical unused uploads are not retroactively deleted.
+
 ## 2026-09-17 — White join/leave notices over gallery backgrounds
 
 - Made system join/leave notices and inherited timestamps pure white while a gallery background is selected in either theme, with a subtle dark text shadow for bright image areas. Preset backgrounds retain their existing notice colors.

@@ -2,7 +2,7 @@ const { resolveImageUpload, safeHistoryMessage } = require('./image-security');
 const REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
 const objectId = value => typeof value === 'string' && /^[a-f0-9]{24}$/i.test(value);
 
-function createMessageService({ Message, ImageUpload, cloudName, getTime }) {
+function createMessageService({ Message, ImageUpload, cloudName, getTime, withImageUse = (_username, _data, work) => work() }) {
   async function present(messages) {
     const result = messages.map(message => safeHistoryMessage(message, cloudName));
     const ids = [...new Set(result.filter(m => !m.deleted && m.replyTo).map(m => String(m.replyTo)))];
@@ -32,31 +32,34 @@ function createMessageService({ Message, ImageUpload, cloudName, getTime }) {
     const key = { username, clientId: data.clientId };
     const existing = await Message.findOne(key);
     if (existing) return existing;
-    const values = { ...key, type, timestamp: getTime() };
-    if (type === 'message') {
-      if (typeof data.message !== 'string' || !data.message.trim() || data.message.length > 10000) {
-        throw new Error('Messages must contain 1–10000 characters.');
+    const save = async () => {
+      const values = { ...key, type, timestamp: getTime() };
+      if (type === 'message') {
+        if (typeof data.message !== 'string' || !data.message.trim() || data.message.length > 10000) {
+          throw new Error('Messages must contain 1–10000 characters.');
+        }
+        values.message = data.message;
+      } else if (type === 'image') {
+        Object.assign(values, await resolveImageUpload(ImageUpload, username, data, cloudName));
+      } else throw new Error('Invalid message type.');
+      if (data.replyTo != null) {
+        if (!objectId(data.replyTo)) throw new Error('Invalid reply target.');
+        const target = await Message.findOne({ _id: data.replyTo, deleted: { $ne: true }, type: { $in: ['message', 'image'] } });
+        if (!target) throw new Error('That message is no longer available to reply to.');
+        values.replyTo = target._id;
       }
-      values.message = data.message;
-    } else if (type === 'image') {
-      Object.assign(values, await resolveImageUpload(ImageUpload, username, data, cloudName));
-    } else throw new Error('Invalid message type.');
-    if (data.replyTo != null) {
-      if (!objectId(data.replyTo)) throw new Error('Invalid reply target.');
-      const target = await Message.findOne({ _id: data.replyTo, deleted: { $ne: true }, type: { $in: ['message', 'image'] } });
-      if (!target) throw new Error('That message is no longer available to reply to.');
-      values.replyTo = target._id;
-    }
-    try {
-      return await Message.findOneAndUpdate(key, { $setOnInsert: values }, {
-        upsert: true, new: true, runValidators: true, setDefaultsOnInsert: true
-      });
-    } catch (err) {
-      if (err.code !== 11000) throw err;
-      const saved = await Message.findOne(key);
-      if (!saved) throw err;
-      return saved;
-    }
+      try {
+        return await Message.findOneAndUpdate(key, { $setOnInsert: values }, {
+          upsert: true, new: true, runValidators: true, setDefaultsOnInsert: true
+        });
+      } catch (err) {
+        if (err.code !== 11000) throw err;
+        const saved = await Message.findOne(key);
+        if (!saved) throw err;
+        return saved;
+      }
+    };
+    return type === 'image' ? withImageUse(username, data, save) : save();
   }
 
   async function unsend(username, data) {

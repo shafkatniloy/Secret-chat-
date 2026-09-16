@@ -10,6 +10,7 @@ const { createAuth } = require('./auth');
 const { isTrustedImageUrl } = require('./image-security');
 const { createMessageService, registerMessageHandlers } = require('./message-service');
 const { createBackgroundService, registerBackgroundHandlers } = require('./background-service');
+const { createImageLifecycle } = require('./image-lifecycle');
 require('dotenv').config();
 
 const app = express();
@@ -89,9 +90,11 @@ const ImageUpload = mongoose.model('ImageUpload', new mongoose.Schema({
   username: { type: String, required: true },
   url: { type: String, required: true },
   publicId: { type: String, required: true },
+  activeUses: { type: Number, default: 0 },
+  deletionPending: { type: Boolean, default: false },
+  cleanupRequested: { type: Boolean, default: false },
   createdAt: { type: Date, default: Date.now }
 }));
-const messageService = createMessageService({ Message, ImageUpload, cloudName: process.env.CLOUDINARY_CLOUD_NAME, getTime: getDhakaTime });
 const UserPreference = mongoose.model('UserPreference', new mongoose.Schema({
   username: { type: String, required: true, unique: true },
   theme: { type: String, enum: ['light', 'dark'], default: 'light' }
@@ -103,7 +106,14 @@ const ChatBackground = mongoose.model('ChatBackground', new mongoose.Schema({
   imagePath: { type: String, default: null },
   revision: { type: Number, default: 0 }
 }));
-const backgroundService = createBackgroundService({ Setting: ChatBackground, ImageUpload, cloudName: process.env.CLOUDINARY_CLOUD_NAME });
+const imageLifecycle = createImageLifecycle({ ImageUpload, Message, Setting: ChatBackground,
+  cloudName: process.env.CLOUDINARY_CLOUD_NAME,
+  destroy: (publicId, options) => cloudinary.uploader.destroy(publicId, options)
+});
+const messageService = createMessageService({ Message, ImageUpload, cloudName: process.env.CLOUDINARY_CLOUD_NAME,
+  getTime: getDhakaTime, withImageUse: imageLifecycle.withImageUse });
+const backgroundService = createBackgroundService({ Setting: ChatBackground, ImageUpload,
+  cloudName: process.env.CLOUDINARY_CLOUD_NAME, ...imageLifecycle });
 
 // Setup multer with Cloudinary storage
 const storage = new CloudinaryStorage({
