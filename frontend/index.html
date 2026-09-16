@@ -561,11 +561,22 @@
       .message-actions summary { position: absolute; top: 7px; right: 5px; cursor: pointer; list-style: none; font-size: 24px; line-height: 28px; width: 28px; text-align: center; border-radius: 6px; }
       .message-actions summary::-webkit-details-marker { display: none; }
       .message-actions summary:focus-visible, .message-menu button:focus-visible { outline: 2px solid #667eea; }
-      .message-menu { margin-top: 10px; padding: 8px; border: 1px solid #cbd5e0; border-radius: 8px; display: flex; flex-direction: column; gap: 5px; }
+      #messages li:has(.message-actions[open]) { animation: none; }
+      .message-menu { position: fixed; z-index: 1000; box-sizing: border-box; width: 288px; max-width: calc(100vw - 16px); margin: 0; padding: 10px; border: 0; border-radius: 20px; background: linear-gradient(145deg, rgba(255,255,255,.92), rgba(237,232,255,.94)); color: #302b49; box-shadow: 0 16px 40px rgba(25,18,48,.2), inset 0 1px 1px rgba(255,255,255,.9), inset 0 -1px 1px rgba(132,112,190,.15); display: flex; flex-direction: column; gap: 6px; overflow-y: auto; overscroll-behavior: contain; }
       .message-menu button, .delivery-status button, .reaction-badges button { font: inherit; color: inherit; background: transparent; border: 1px solid #a0aec0; border-radius: 6px; padding: 6px 8px; cursor: pointer; }
-      .message-menu > span { font-size: 12px; }
+      .message-menu button { border: 0; border-radius: 10px; min-height: 40px; }
+      .message-menu > button { text-align: left; }
+      .message-menu button:hover { background: rgba(155,133,220,.18); }
+      .message-menu > span { font-size: 12px; padding: 0 8px; opacity: .75; }
+      body[data-theme="dark"] .message-menu { background: linear-gradient(145deg, rgba(65,58,89,.97), rgba(34,30,54,.97)); color: #f0ecff; box-shadow: 0 16px 40px rgba(0,0,0,.38), inset 0 1px 1px rgba(255,255,255,.22), inset 0 -1px 1px rgba(182,157,255,.08); }
+      @supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+        .message-menu { background: linear-gradient(145deg, rgba(255,255,255,.55), rgba(237,232,255,.38)); -webkit-backdrop-filter: blur(28px) saturate(175%); backdrop-filter: blur(28px) saturate(175%); }
+        body[data-theme="dark"] .message-menu { background: linear-gradient(145deg, rgba(72,63,99,.48), rgba(29,25,48,.42)); }
+      }
+      body[data-theme="dark"] .message-menu button:hover { background: rgba(201,183,255,.14); }
       .reaction-picker, .reaction-badges { display: flex; flex-wrap: wrap; gap: 4px; }
-      .reaction-picker button { font-size: 20px; padding: 4px; }
+      .reaction-picker { flex-wrap: nowrap; }
+      .reaction-picker button { flex: 1 1 0; min-width: 0; font-size: 20px; padding: 4px 0; }
       .reaction-picker button[aria-pressed="true"] { background: #c7d2fe; }
       .reaction-badges { margin-top: 6px; }
       .reaction-badges button { font-size: 12px; padding: 2px 6px; }
@@ -588,6 +599,19 @@
       .delivery-sending { animation: delivery-spin .8s linear infinite; }
       @keyframes delivery-spin { to { transform: rotate(360deg); } }
       @media (prefers-reduced-motion: reduce) { .delivery-sending { animation: none; } }
+      #iconMenuButton { display: flex; align-items: center; justify-content: center; flex: 0 0 auto; min-width: 40px; min-height: 40px; padding: 0; border: 0; border-radius: 12px; background: transparent; cursor: pointer; }
+      #iconMenuButton:focus-visible { outline: 2px solid white; outline-offset: 2px; }
+      #iconMenuButton:hover { background: rgba(255,255,255,.12); }
+      #iconMenu[hidden], #backgroundMenu[hidden] { display: none; }
+      #backgroundMenu h2 { font-size: 15px; padding: 6px 8px; margin: 0; }
+      #backgroundMenu p { font-size: 12px; padding: 0 8px; margin: 0; }
+      #backgroundMenu button[aria-pressed="true"] { background: rgba(155,133,220,.25); font-weight: 600; }
+      #backgroundMenu button:disabled { opacity: .55; cursor: wait; }
+      #iconMenu { width: 250px; }
+      #backgroundMenuButton { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+      #backgroundMenuButton svg { width: 16px; height: 16px; flex-shrink: 0; }
+      #backgroundStatus:empty { display: none; }
+      #messages { background-size: cover; background-position: center; background-repeat: no-repeat; }
     </style>
   </head>
   <body>
@@ -618,7 +642,7 @@
     <!-- Chat Screen (hidden initially) -->
     <div id="chatScreen" class="chat-container" style="display: none;">
       <div class="chat-header">
-        <h1><img class="chat-logo" src="assets/logo.png" alt="" width="40" height="40"><span lang="bn">আমাদের কথা</span></h1>
+        <h1><button id="iconMenuButton" type="button" aria-label="Icon menu" aria-expanded="false" aria-controls="iconMenu"><img class="chat-logo" src="assets/logo.png" alt="" width="40" height="40"></button><span lang="bn">আমাদের কথা</span></h1>
         <div class="chat-header-right">
           <div class="account-controls">
           <span id="currentUser"></span>
@@ -646,6 +670,21 @@
     </div>
 
     <script src="chat-state.js"></script>
+    <section id="iconMenu" class="message-menu" aria-label="Icon menu" hidden>
+      <button id="backgroundMenuButton" type="button" aria-expanded="false" aria-controls="backgroundMenu">
+        Chat background setting
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="m9 5 7 7-7 7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+    </section>
+    <section id="backgroundMenu" class="message-menu" aria-label="Chat background" hidden>
+      <h2>Chat background</h2>
+      <button type="button" data-background="current" aria-pressed="true">Dfault BG</button>
+      <button type="button" data-background="dark" aria-pressed="false">Dark background</button>
+      <button type="button" data-background="light" aria-pressed="false">Light background</button>
+      <button type="button" data-background="gallery" aria-pressed="false">Choose from gallery</button>
+      <p id="backgroundStatus" role="status" aria-live="polite"></p>
+    </section>
+    <input id="backgroundFileInput" type="file" accept="image/jpeg,image/png,image/gif,image/webp" hidden>
     <script>
       // Get backend URL from environment or use default
       const BACKEND_URL = window.location.hostname === 'localhost' 
@@ -812,11 +851,14 @@
           forceNew: true
         });
 
+        resetBackground();
+        socket.on('background updated', applyBackground);
         socket.on('connect', () => {
           currentUsername = username;
           chatState.messages.clear();
           setReply(null);
           loadTheme();
+          loadBackground();
           // Hide login, show chat
           document.getElementById('loginScreen').style.display = 'none';
           document.getElementById('chatScreen').style.display = 'flex';
@@ -1158,7 +1200,9 @@
         details.addEventListener('toggle', () => {
           if (details.open) {
             if (activeMessageMenu && activeMessageMenu !== details) activeMessageMenu.open = false;
+            closeIconMenu();
             activeMessageMenu = details;
+            positionMessageMenu(details);
           }
         });
         details.addEventListener('keydown', event => { if (event.key === 'Escape') { details.open = false; summary.focus(); } });
@@ -1176,6 +1220,34 @@
           item.appendChild(badges);
         }
       }
+
+      function positionMessageMenu(details) {
+        const menu = details.querySelector('.message-menu');
+        const anchor = details.querySelector('summary').getBoundingClientRect();
+        const viewport = window.visualViewport;
+        const left = (viewport?.offsetLeft || 0) + 8;
+        const top = (viewport?.offsetTop || 0) + 8;
+        const right = left + (viewport?.width || window.innerWidth) - 16;
+        const bottom = top + (viewport?.height || window.innerHeight) - 16;
+        menu.style.maxWidth = Math.max(0, right - left) + 'px';
+        menu.style.maxHeight = Math.max(0, bottom - top) + 'px';
+        const size = menu.getBoundingClientRect();
+        menu.style.left = Math.max(left, Math.min(anchor.right - size.width, right - size.width)) + 'px';
+        const below = anchor.bottom + 6;
+        menu.style.top = Math.max(top, Math.min(below + size.height <= bottom ? below : anchor.top - size.height - 6, bottom - size.height)) + 'px';
+      }
+
+      function closeMessageMenu() {
+        if (activeMessageMenu) activeMessageMenu.open = false;
+        activeMessageMenu = null;
+      }
+      document.addEventListener('click', event => {
+        if (activeMessageMenu && !activeMessageMenu.contains(event.target)) closeMessageMenu();
+      });
+      document.getElementById('messages').addEventListener('scroll', closeMessageMenu, { passive: true });
+      window.addEventListener('resize', closeMessageMenu);
+      window.visualViewport?.addEventListener('resize', closeMessageMenu);
+      window.visualViewport?.addEventListener('scroll', closeMessageMenu);
 
       function messageHeader(data) {
         const header = document.createElement('div');
@@ -1263,6 +1335,7 @@
       }
 
       function handleLogout() {
+        resetBackground();
         ++themeSession;
         connectionReady = false;
         saveOutbox();
@@ -1309,6 +1382,164 @@
       window.addEventListener('resize', updateAppViewport);
       window.visualViewport?.addEventListener('resize', updateAppViewport);
       window.visualViewport?.addEventListener('scroll', updateAppViewport);
+
+      let backgroundRevision = -1;
+      let backgroundBusy = false;
+      let backgroundSession = 0;
+      const backgroundPresets = { current: '', dark: 'assets/bg_dark.jpeg', light: 'assets/bg_light.jpeg' };
+      const iconMenu = document.getElementById('iconMenu');
+      const iconMenuButton = document.getElementById('iconMenuButton');
+      const backgroundMenu = document.getElementById('backgroundMenu');
+      const backgroundMenuButton = document.getElementById('backgroundMenuButton');
+
+      function closeBackgroundMenu() {
+        backgroundMenu.hidden = true;
+        backgroundMenuButton.setAttribute('aria-expanded', 'false');
+      }
+      function positionBackgroundMenu() {
+        const anchor = iconMenu.getBoundingClientRect();
+        const viewport = window.visualViewport;
+        const left = (viewport?.offsetLeft || 0) + 8;
+        const top = (viewport?.offsetTop || 0) + 8;
+        const right = left + (viewport?.width || window.innerWidth) - 16;
+        const bottom = top + (viewport?.height || window.innerHeight) - 16;
+        backgroundMenu.style.maxWidth = Math.max(0, right - left) + 'px';
+        backgroundMenu.style.maxHeight = Math.max(0, bottom - top) + 'px';
+        const size = backgroundMenu.getBoundingClientRect();
+        // Open alongside the parent; stack beneath it on narrow screens.
+        const alongside = anchor.right + 8 + size.width <= right;
+        const x = alongside ? anchor.right + 8 : Math.max(left, Math.min(anchor.left, right - size.width));
+        const y = alongside ? Math.max(top, Math.min(anchor.top, bottom - size.height)) : Math.min(anchor.bottom + 8, bottom - 40);
+        backgroundMenu.style.left = x + 'px';
+        backgroundMenu.style.top = Math.max(top, y) + 'px';
+        backgroundMenu.style.maxHeight = Math.max(0, bottom - Math.max(top, y)) + 'px';
+      }
+      backgroundMenuButton.addEventListener('click', () => {
+        if (!backgroundMenu.hidden) { closeBackgroundMenu(); return; }
+        backgroundMenu.hidden = false;
+        backgroundMenuButton.setAttribute('aria-expanded', 'true');
+        positionBackgroundMenu();
+      });
+      backgroundMenuButton.addEventListener('keydown', event => {
+        if (event.key === 'ArrowRight') {
+          event.preventDefault();
+          if (backgroundMenu.hidden) backgroundMenuButton.click();
+          backgroundMenu.querySelector('button:not(:disabled)')?.focus();
+        }
+      });
+      backgroundMenu.addEventListener('keydown', event => {
+        if (event.key === 'ArrowLeft') { event.preventDefault(); closeBackgroundMenu(); backgroundMenuButton.focus(); }
+      });
+
+      function closeIconMenu() {
+        closeBackgroundMenu();
+        iconMenu.hidden = true;
+        iconMenuButton.setAttribute('aria-expanded', 'false');
+      }
+      iconMenuButton.addEventListener('click', () => {
+        if (!iconMenu.hidden) { closeIconMenu(); return; }
+        closeMessageMenu();
+        iconMenu.hidden = false;
+        iconMenuButton.setAttribute('aria-expanded', 'true');
+        positionMessageMenu({ querySelector: selector => selector === '.message-menu' ? iconMenu : iconMenuButton });
+      });
+      document.addEventListener('click', event => {
+        if (!iconMenu.contains(event.target) && !backgroundMenu.contains(event.target) && !iconMenuButton.contains(event.target)) closeIconMenu();
+      });
+      document.addEventListener('keydown', event => {
+        if (event.key === 'Escape' && !backgroundMenu.hidden) { closeBackgroundMenu(); backgroundMenuButton.focus(); }
+        else if (event.key === 'Escape' && !iconMenu.hidden) { closeIconMenu(); iconMenuButton.focus(); }
+      });
+      window.addEventListener('resize', closeIconMenu);
+      window.visualViewport?.addEventListener('resize', closeIconMenu);
+      window.visualViewport?.addEventListener('scroll', closeIconMenu);
+
+      function applyBackground(data) {
+        if (!data || !Number.isSafeInteger(data.revision) || data.revision < backgroundRevision) return;
+        let image;
+        if (data.preset === 'gallery') {
+          image = safeImageUrl(data.imagePath);
+          if (!image) return;
+        } else {
+          if (!Object.hasOwn(backgroundPresets, data.preset)) return;
+          image = backgroundPresets[data.preset];
+        }
+        backgroundRevision = data.revision;
+        document.getElementById('messages').style.backgroundImage = image ? 'url(' + JSON.stringify(image) + ')' : '';
+        for (const button of backgroundMenu.querySelectorAll('[data-background]')) {
+          button.setAttribute('aria-pressed', String(button.dataset.background === data.preset));
+        }
+      }
+      function backgroundRequest(connection, event, data) {
+        return new Promise((resolve, reject) => {
+          connection.timeout(15000).emit(event, data, (error, result) => {
+            if (error || !result?.ok) reject(new Error(result?.error || 'Background change not confirmed. Reconnect to check.'));
+            else resolve(result.background);
+          });
+        });
+      }
+      function resetBackground() {
+        ++backgroundSession;
+        backgroundBusy = false;
+        backgroundRevision = -1;
+        applyBackground({ preset: 'current', revision: 0 });
+        backgroundRevision = -1;
+        for (const button of backgroundMenu.querySelectorAll('[data-background]')) button.disabled = false;
+        document.getElementById('backgroundStatus').textContent = '';
+        closeIconMenu();
+      }
+      async function loadBackground() {
+        const connection = socket, session = backgroundSession;
+        try {
+          const background = await backgroundRequest(connection, 'get background', {});
+          if (socket === connection && session === backgroundSession) applyBackground(background);
+        } catch (error) {
+          if (socket === connection && session === backgroundSession) document.getElementById('backgroundStatus').textContent = error.message;
+        }
+      }
+      async function changeBackground(preset, file) {
+        if (backgroundBusy) return;
+        const status = document.getElementById('backgroundStatus');
+        if (!socket?.connected) { status.textContent = 'Reconnect before changing the background.'; return; }
+        if (file && (!['image/jpeg', 'image/png', 'image/gif', 'image/webp'].includes(file.type) || file.size > 10 * 1024 * 1024)) {
+          status.textContent = 'Choose a JPG, PNG, GIF, or WebP image up to 10 MB.'; return;
+        }
+        const connection = socket, session = backgroundSession;
+        backgroundBusy = true;
+        for (const button of backgroundMenu.querySelectorAll('[data-background]')) button.disabled = true;
+        status.textContent = file ? 'Uploading background…' : 'Saving background…';
+        try {
+          const payload = { preset };
+          if (file) {
+            const draft = { file };
+            await uploadDraft(draft, connection);
+            payload.uploadId = draft.uploadId;
+          }
+          if (socket !== connection || session !== backgroundSession || !connection.connected) return;
+          const background = await backgroundRequest(connection, 'set background', payload);
+          if (socket !== connection || session !== backgroundSession) return;
+          applyBackground(background);
+          status.textContent = 'Background updated for both users.';
+        } catch (error) {
+          if (socket === connection && session === backgroundSession) status.textContent = error.message;
+        } finally {
+          if (session === backgroundSession) {
+            backgroundBusy = false;
+            for (const button of backgroundMenu.querySelectorAll('[data-background]')) button.disabled = false;
+          }
+        }
+      }
+      for (const button of backgroundMenu.querySelectorAll('[data-background]')) {
+        button.addEventListener('click', () => {
+          if (button.dataset.background === 'gallery') document.getElementById('backgroundFileInput').click();
+          else changeBackground(button.dataset.background);
+        });
+      }
+      document.getElementById('backgroundFileInput').addEventListener('change', event => {
+        const file = event.target.files[0];
+        event.target.value = '';
+        if (file) changeBackground('gallery', file);
+      });
 
       // Focus on username input on load
       window.addEventListener('load', () => {

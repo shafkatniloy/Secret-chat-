@@ -9,6 +9,7 @@ const cors = require('cors');
 const { createAuth } = require('./auth');
 const { isTrustedImageUrl } = require('./image-security');
 const { createMessageService, registerMessageHandlers } = require('./message-service');
+const { createBackgroundService, registerBackgroundHandlers } = require('./background-service');
 require('dotenv').config();
 
 const app = express();
@@ -95,6 +96,14 @@ const UserPreference = mongoose.model('UserPreference', new mongoose.Schema({
   username: { type: String, required: true, unique: true },
   theme: { type: String, enum: ['light', 'dark'], default: 'light' }
 }));
+
+const ChatBackground = mongoose.model('ChatBackground', new mongoose.Schema({
+  _id: { type: String, default: 'shared' },
+  preset: { type: String, enum: ['current', 'dark', 'light', 'gallery'], default: 'current' },
+  imagePath: { type: String, default: null },
+  revision: { type: Number, default: 0 }
+}));
+const backgroundService = createBackgroundService({ Setting: ChatBackground, ImageUpload, cloudName: process.env.CLOUDINARY_CLOUD_NAME });
 
 // Setup multer with Cloudinary storage
 const storage = new CloudinaryStorage({
@@ -272,6 +281,7 @@ io.on('connection', async (socket) => {
   userSockets.add(socket.id);
   
   registerMessageHandlers(socket, io, messageService);
+  registerBackgroundHandlers(socket, io, backgroundService);
 
   socket.on('disconnect', async () => {
     console.log(`${username} disconnected`);

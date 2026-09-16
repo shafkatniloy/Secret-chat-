@@ -130,3 +130,25 @@ test('delivery icons use distinct SVG paths without visible status text', () => 
   }
   assert.equal(paths.size, 4);
 });
+
+test('message popup stays within mobile and desktop viewport edges', () => {
+  const html = fs.readFileSync(path.join(__dirname, '../frontend/index.html'), 'utf8');
+  for (const viewport of [{ width: 320, height: 480, offsetLeft: 0, offsetTop: 0 },
+    { width: 1200, height: 800, offsetLeft: 0, offsetTop: 0 },
+    { width: 320, height: 250, offsetLeft: 10, offsetTop: 80 }]) {
+    for (const nearBottom of [false, true]) {
+      const anchor = { right: viewport.offsetLeft + 60, top: viewport.offsetTop + (nearBottom ? viewport.height - 40 : 12) };
+      anchor.bottom = anchor.top + 28;
+      const menu = { style: {}, getBoundingClientRect: () => ({ width: 288, height: 180 }) };
+      const details = { querySelector: selector => selector === '.message-menu' ? menu : { getBoundingClientRect: () => anchor } };
+      const context = vm.createContext({ window: { visualViewport: viewport } });
+      vm.runInContext(html.slice(html.indexOf('      function positionMessageMenu('), html.indexOf('      function closeMessageMenu(')), context);
+      context.positionMessageMenu(details);
+      const x = parseFloat(menu.style.left), y = parseFloat(menu.style.top);
+      assert(x >= viewport.offsetLeft + 8);
+      assert(x + 288 <= viewport.offsetLeft + viewport.width - 8);
+      assert(y >= viewport.offsetTop + 8);
+      assert(y + 180 <= viewport.offsetTop + viewport.height - 8);
+    }
+  }
+});

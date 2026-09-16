@@ -1,5 +1,40 @@
 # Changes by Codex
 
+## 2026-09-17 — Split Icon menu into background submenu
+
+- Reduced the Icon menu to one “Chat background setting” button with a minimal chevron. Clicking opens the existing glass background picker to its right; narrow viewports stack the picker beneath the parent and constrain its height for scrolling.
+- Removed “Changes apply to both users.” and renamed Current background to the requested “Dfault BG”. Existing background choices, shared persistence, and gallery uploads remain connected to the submenu.
+- Added submenu expanded state, arrow-key navigation, and staged Escape dismissal. Closing the Icon menu also closes its submenu; clicks within either panel keep them open.
+- Backend suite, submenu desktop/mobile positioning checks, inline JavaScript syntax, and diff whitespace passed. Browser visual checks remain unverified. Offline preview uses the actual frontend and needs only a refresh.
+- Local only. This menu adjustment needs frontend deployment; the previously added shared-background feature still requires both frontend and backend deployment.
+
+## 2026-09-17 — Icon menu and shared chat backgrounds
+
+- Turned the header logo into an accessible Icon menu button. Its popup reuses the message menu's fluid-glass styles and viewport positioning, with outside-click/Escape dismissal and a Chat background section ready for more options.
+- Added Current background, Dark background (`assets/bg_dark.jpeg`), Light background (`assets/bg_light.jpeg`), and Choose from gallery. Images cover the chat viewport with centered cropping rather than stretching; header/composer layout and individual light/dark theme preferences remain intact.
+- Added a shared MongoDB background setting and authenticated Socket.IO load/save/broadcast handlers. Either user can update it; monotonic revisions prevent delayed replies from restoring older selections, and reconnects reload saved settings. Gallery choices reuse the existing authenticated image upload and enforce server-side ownership and trusted image URLs.
+- Updated the Git-ignored offline adapter to simulate background choices and gallery images with the actual frontend. Offline choices last for the preview page session and do not prove cross-device sync or database persistence.
+- Backend suite passed, including shared state, upload ownership/URL validation, authenticated identity, broadcast/failure handling, first-save race recovery, and frontend stale-response checks. JavaScript syntax and diff whitespace passed. Browser visuals, real MongoDB/Cloudinary, and two-device integration remain unverified.
+- Local only; nothing committed, pushed, or deployed. Deploy both backend and frontend (including the two supplied JPEG assets), then refresh open tabs. The new background collection is created on first save; existing messages need no migration. Refresh the offline launcher and click the header logo to preview.
+
+## 2026-09-17 — Increase popup glass transparency
+
+- Reduced only the message popup gradient opacity to 55%/38% in light mode and 48%/42% in dark mode. Increased backdrop blur to 28px and saturation to 175% for softer glass; opaque fallback surfaces are preserved.
+- Diff whitespace check passed. Browser visual checks remain unverified. Local CSS-only change; refresh the offline preview to inspect. Only frontend deployment and tab refresh are needed to publish.
+
+## 2026-09-17 — Glass finish for message popup only
+
+- Styled only the floating message menu with translucent gradients, backdrop blur/saturation, rounded corners, soft inner highlights, and translucent hover backgrounds in both themes. Added more opaque fallback surfaces for browsers without backdrop-filter support.
+- Preserved popup positioning, the single-row reactions, and all actions. No other UI styling changed.
+- Diff whitespace checks passed; browser visual checks remain unverified. CSS-only change; refresh the offline preview to inspect. Local only; frontend deployment and tab refresh required to publish.
+
+## 2026-09-17 — Float and soften message options
+
+- Moved message options out of bubble layout into a fixed popup, positioned within the visible viewport and above the trigger when needed. Outside clicks, history scrolling, and viewport changes dismiss it; Escape and existing actions remain available.
+- Kept all six reactions on one flex row with a popup width independent of the message bubble. Added rounded, borderless controls and soft lavender/light and plum/dark surfaces with shadows.
+- Backend tests (including viewport positioning regression), inline JavaScript syntax, and diff whitespace checks passed. Browser visual, real keyboard, and live two-device checks were not available/performed.
+- Local changes only. Refresh the offline launcher to test; only frontend deployment and refreshing open tabs are needed to publish.
+
 ## 2026-09-08 — Consolidate duplicate Antigravity changelogs
 
 - Verified both Antigravity changelog files were byte-for-byte identical.
