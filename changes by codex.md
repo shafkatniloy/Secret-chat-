@@ -1,5 +1,12 @@
 # Changes by Codex
 
+## 2026-09-17 — White join/leave notices over gallery backgrounds
+
+- Made system join/leave notices and inherited timestamps pure white while a gallery background is selected in either theme, with a subtle dark text shadow for bright image areas. Preset backgrounds retain their existing notice colors.
+- Track the applied background preset on the message list; switching back to a preset restores the original styling. Existing offline preview uses the same rendering code.
+- Backend suite, gallery/preset state assertions, inline JavaScript syntax, and diff whitespace passed. Browser visual checks remain unverified.
+- Local only; not committed or pushed. Frontend deployment and tab refresh are required. Background upload retention was inspected but not changed: previous successful uploads and their records are retained even after replacement.
+
 ## 2026-09-17 — Split Icon menu into background submenu
 
 - Reduced the Icon menu to one “Chat background setting” button with a minimal chevron. Clicking opens the existing glass background picker to its right; narrow viewports stack the picker beneath the parent and constrain its height for scrolling.

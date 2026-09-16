@@ -6,7 +6,7 @@ const vm = require('node:vm');
 const html = fs.readFileSync(path.join(__dirname, '../frontend/index.html'), 'utf8');
 
 test('background UI ignores stale responses and unsafe gallery URLs; current clears the image', () => {
-  const list = { style: {} };
+  const list = { style: {}, dataset: {} };
   const buttons = ['current', 'dark', 'light', 'gallery'].map(preset => ({ dataset: { background: preset },
     setAttribute(name, value) { this[name] = value; } }));
   const context = vm.createContext({ backgroundRevision: -1, localPreview: false, URL,
@@ -25,8 +25,10 @@ test('background UI ignores stale responses and unsafe gallery URLs; current cle
   }
   context.applyBackground({ preset: 'gallery', revision: 4, imagePath: 'https://res.cloudinary.com/test-cloud/image/upload/example.jpg' });
   assert.equal(buttons[3]['aria-pressed'], 'true');
+  assert.equal(list.dataset.background, 'gallery');
   context.applyBackground({ preset: 'current', revision: 5 });
   assert.equal(list.style.backgroundImage, '');
+  assert.equal(list.dataset.background, 'current');
   assert.equal(buttons[0]['aria-pressed'], 'true');
 });
 

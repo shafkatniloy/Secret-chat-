@@ -611,6 +611,8 @@
       #backgroundMenuButton { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
       #backgroundMenuButton svg { width: 16px; height: 16px; flex-shrink: 0; }
       #backgroundStatus:empty { display: none; }
+      #messages[data-background="gallery"] li.system,
+      body[data-theme="dark"] #messages[data-background="gallery"] li.system { color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,.9); }
       #messages { background-size: cover; background-position: center; background-repeat: no-repeat; }
     </style>
   </head>
@@ -1465,7 +1467,9 @@
           image = backgroundPresets[data.preset];
         }
         backgroundRevision = data.revision;
-        document.getElementById('messages').style.backgroundImage = image ? 'url(' + JSON.stringify(image) + ')' : '';
+        const messages = document.getElementById('messages');
+        messages.style.backgroundImage = image ? 'url(' + JSON.stringify(image) + ')' : '';
+        messages.dataset.background = data.preset;
         for (const button of backgroundMenu.querySelectorAll('[data-background]')) {
           button.setAttribute('aria-pressed', String(button.dataset.background === data.preset));
         }
