@@ -1,5 +1,14 @@
 # Changes by Codex
 
+## 2026-09-17 — Load older chat history when scrolling up
+
+- Added authenticated Socket.IO history pagination in bounded 200-message batches. Initial history now includes an oldest-message cursor and has-more flag; scrolling near the top fetches the next older page. A compact history control shows loading, retry, or beginning-of-conversation status.
+- Added a compound createdAt/_id index and matching cursor queries rather than offset/skip pagination. Equal timestamps use the message ID as a stable tie-breaker; cursor values are validated and server/client guards prevent overlapping reads.
+- Merge older messages using existing revision-aware deduplication, preserve the first visible message's position, and retain attached YouTube players. Reconnect/logout invalidate pending history responses; failed requests preserve the cursor for retry, including recovery from an initial-history failure.
+- Updated the Git-ignored offline adapter with 450 synthetic older messages and the same bounded history flow. Refresh the launcher, log in, and scroll to the top to exercise multiple pages without a live server.
+- Backend suite passed, including multi-page coverage, equal timestamps, concurrent live inserts, malformed cursors, request serialization, retries, stale-session protection, revision-aware merging, scroll anchoring, and player preservation. JavaScript syntax and diff whitespace passed. Browser visual/late-image layout and live MongoDB/two-device checks remain unverified.
+- During verification, the implementation appeared in user-created commit `b524c6f` (also reflected in the local upstream tracking reference). The final regression-test additions and this changelog entry remain local. Deployment is not verified; both frontend and backend need the update, followed by refreshing open tabs. Mongoose creates the new history index under the existing index setup; stored messages need no rewrite.
+
 ## 2026-09-17 — Glass attachment menu and timestamped YouTube music messages
 
 - Converted the composer link button into an Attachments menu using the existing glass popup styles. Added Send image (the existing image picker) and Send music (a labeled YouTube link field with adjacent Send and Cancel controls). Menus support outside-click/Escape dismissal and viewport positioning.

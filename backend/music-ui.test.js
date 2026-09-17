@@ -10,6 +10,11 @@ function fixture(preview = false) {
   let detachments = 0;
   class Element {
     constructor(tag) { this.tag = tag; this.children = []; this.dataset = {}; this.className = ''; this.clientWidth = 300; this.scrollTop = 0; this.scrollHeight = 500; this.clientHeight = 500; }
+    get isConnected() { return this.tag === 'ul' || !!this.parent?.isConnected; }
+    getBoundingClientRect() {
+      const top = this.parent ? this.parent.children.indexOf(this) * 100 - this.parent.scrollTop : 0;
+      return { top, bottom: top + (this.tag === 'ul' ? this.clientHeight : 100) };
+    }
     get classList() { return { contains: value => this.className.split(' ').includes(value) }; }
     get firstChild() { return this.children[0] || null; }
     get lastElementChild() { return this.children.at(-1); }
@@ -85,4 +90,18 @@ test('unsupported links are inert text; offline preview never loads a player', (
   preview.list.querySelector('button').onclick();
   assert.equal(preview.list.querySelector('iframe'), null);
   assert.match(preview.list.querySelector('.music-label').textContent, /Offline preview/);
+});
+
+
+test('prepending older history preserves the visible anchor and attached music player', () => {
+  const f = fixture(); f.setRows([song]); f.context.renderChat(); f.list.querySelector('button').onclick();
+  const item = f.list.firstChild, frame = f.list.querySelector('iframe');
+  f.list.scrollTop = 40;
+  const before = item.getBoundingClientRect().top;
+  f.setRows([{ _id: 'older', type: 'message', username: 'Bob', message: 'Earlier' }, song]);
+  f.context.renderChat(true);
+  assert.equal(item.getBoundingClientRect().top, before);
+  assert.equal(f.list.scrollTop, 140);
+  assert.equal(f.list.querySelector('iframe'), frame);
+  assert.equal(f.detachments(), 0);
 });

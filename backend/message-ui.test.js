@@ -82,6 +82,7 @@ test('message handlers and disconnect cleanup are registered before history awai
   const server = fs.readFileSync(path.join(__dirname, 'server.js'), 'utf8');
   const connection = server.slice(server.indexOf("io.on('connection'"));
   assert(connection.indexOf('registerMessageHandlers(') < connection.indexOf('await historyService.page()'));
+  assert(connection.indexOf('registerHistoryHandlers(') < connection.indexOf('await historyService.page()'));
   assert(connection.indexOf("socket.on('disconnect'") < connection.indexOf('await historyService.page()'));
 });
 
