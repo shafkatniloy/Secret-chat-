@@ -1,23 +1,27 @@
 const { resolveImageUpload, safeHistoryMessage } = require('./image-security');
+const { resolveVoiceUpload, isTrustedVoiceUrl } = require('./voice-service');
 const YouTubeLinks = require('../frontend/youtube-links');
 const REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
 const objectId = value => typeof value === 'string' && /^[a-f0-9]{24}$/i.test(value);
 
-function createMessageService({ Message, ImageUpload, cloudName, getTime, withImageUse = (_username, _data, work) => work() }) {
+function createMessageService({ Message, ImageUpload, cloudName, getTime, withImageUse = (_username, _data, work) => work(), VoiceUpload,
+  withVoiceUse = (_username, _data, work) => work(), cleanupVoice = async () => {} }) {
   async function present(messages) {
     const result = messages.map(message => safeHistoryMessage(message, cloudName));
     const ids = [...new Set(result.filter(m => !m.deleted && m.replyTo).map(m => String(m.replyTo)))];
     const originals = ids.length ? await Message.find({ _id: { $in: ids } }) : [];
     const byId = new Map(originals.map(m => [String(m._id), m]));
     for (const m of result) {
+      if (m.type === 'voice' && !isTrustedVoiceUrl(m.voicePath, cloudName)) m.voicePath = null;
       if (m.deleted) {
         delete m.message; delete m.imagePath; delete m.imagePublicId;
+        delete m.voicePath; delete m.voicePublicId; delete m.voiceDuration;
         delete m.replyTo; delete m.replyPreview; m.reactions = {};
       } else if (m.replyTo) {
         const original = byId.get(String(m.replyTo));
         m.replyPreview = {
           username: original?.username || '',
-          text: !original || original.deleted ? 'Message deleted' : original.type === 'image' ? 'Photo' : original.type === 'music' ? 'YouTube music' : String(original.message || '').slice(0, 200)
+          text: !original || original.deleted ? 'Message deleted' : original.type === 'image' ? 'Photo' : original.type === 'music' ? 'YouTube music' : original.type === 'voice' ? 'Voice message' : String(original.message || '').slice(0, 200)
         };
       }
     }
@@ -43,12 +47,14 @@ function createMessageService({ Message, ImageUpload, cloudName, getTime, withIm
       } else if (type === 'music') {
         if (typeof data.message !== 'string' || !data.message.trim() || data.message.length > 2048) throw new Error('Invalid music link. Use up to 2048 characters.');
         values.message = YouTubeLinks.parse(data.message)?.url || data.message.trim();
+      } else if (type === 'voice') {
+        Object.assign(values, await resolveVoiceUpload(VoiceUpload, username, data, cloudName));
       } else if (type === 'image') {
         Object.assign(values, await resolveImageUpload(ImageUpload, username, data, cloudName));
       } else throw new Error('Invalid message type.');
       if (data.replyTo != null) {
         if (!objectId(data.replyTo)) throw new Error('Invalid reply target.');
-        const target = await Message.findOne({ _id: data.replyTo, deleted: { $ne: true }, type: { $in: ['message', 'image', 'music'] } });
+        const target = await Message.findOne({ _id: data.replyTo, deleted: { $ne: true }, type: { $in: ['message', 'image', 'music', 'voice'] } });
         if (!target) throw new Error('That message is no longer available to reply to.');
         values.replyTo = target._id;
       }
@@ -63,19 +69,21 @@ function createMessageService({ Message, ImageUpload, cloudName, getTime, withIm
         return saved;
       }
     };
-    return type === 'image' ? withImageUse(username, data, save) : save();
+    return type === 'image' ? withImageUse(username, data, save) : type === 'voice' ? withVoiceUse(username, data, save) : save();
   }
 
   async function unsend(username, data) {
     if (!objectId(data?.messageId)) throw new Error('Invalid message.');
-    const key = { _id: data.messageId, username, type: { $in: ['message', 'image', 'music'] } };
+    const key = { _id: data.messageId, username, type: { $in: ['message', 'image', 'music', 'voice'] } };
+    const original = await Message.findOne(key);
     const message = await Message.findOneAndUpdate({ ...key, deleted: { $ne: true } }, {
       $set: { deleted: true, reactions: {} },
-      $unset: { message: '', imagePath: '', imagePublicId: '', replyTo: '' },
+      $unset: { message: '', imagePath: '', imagePublicId: '', voicePath: '', voicePublicId: '', voiceDuration: '', replyTo: '' },
       $inc: { revision: 1 }
     }, { new: true });
     const result = message || await Message.findOne({ ...key, deleted: true });
     if (!result) throw new Error('You can only unsend your own messages.');
+    if (message && original?.type === 'voice' && original.voicePath) await cleanupVoice(original.voicePath);
     return result;
   }
 
@@ -86,7 +94,7 @@ function createMessageService({ Message, ImageUpload, cloudName, getTime, withIm
     const field = 'reactions.' + Buffer.from(username).toString('hex');
     const update = data.emoji === null ? { $unset: { [field]: '' } }
       : { $set: { [field]: { username, emoji: data.emoji } } };
-    const message = await Message.findOneAndUpdate({ _id: data.messageId, deleted: { $ne: true }, type: { $in: ['message', 'image', 'music'] } },
+    const message = await Message.findOneAndUpdate({ _id: data.messageId, deleted: { $ne: true }, type: { $in: ['message', 'image', 'music', 'voice'] } },
       { ...update, $inc: { revision: 1 } }, { new: true, runValidators: true });
     if (!message) throw new Error('That message is no longer available.');
     return message;
@@ -97,9 +105,9 @@ function createMessageService({ Message, ImageUpload, cloudName, getTime, withIm
     }
     const changed = await Promise.all([...new Set(data.messageIds)].map(async _id =>
       await Message.findOneAndUpdate({ _id, username: { $ne: username }, deleted: { $ne: true },
-        type: { $in: ['message', 'image', 'music'] }, seenBy: { $ne: username } },
+        type: { $in: ['message', 'image', 'music', 'voice'] }, seenBy: { $ne: username } },
       { $set: { seenBy: username, seenAt: new Date() }, $inc: { revision: 1 } }, { new: true }) ||
-      await Message.findOne({ _id, username: { $ne: username }, type: { $in: ['message', 'image', 'music'] } })
+      await Message.findOne({ _id, username: { $ne: username }, type: { $in: ['message', 'image', 'music', 'voice'] } })
     ));
     return changed.filter(Boolean);
   }
@@ -120,6 +128,7 @@ function registerMessageHandlers(socket, io, service) {
     }
   });
   handle('chat message', (username, data) => service.send(username, 'message', data), 'chat message');
+  handle('voice message', (username, data) => service.send(username, 'voice', data), 'voice message');
   handle('music message', (username, data) => service.send(username, 'music', data), 'music message');
   handle('image message', (username, data) => service.send(username, 'image', data), 'image message');
   handle('unsend message', service.unsend, 'message updated');

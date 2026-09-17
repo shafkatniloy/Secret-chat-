@@ -10,6 +10,9 @@ function fixture(preview = false) {
   let detachments = 0;
   class Element {
     constructor(tag) { this.tag = tag; this.children = []; this.dataset = {}; this.className = ''; this.clientWidth = 300; this.scrollTop = 0; this.scrollHeight = 500; this.clientHeight = 500; }
+    setAttribute(name, value) { this[name] = value; }
+    addEventListener() {}
+    pause() { this.paused = true; }
     get isConnected() { return this.tag === 'ul' || !!this.parent?.isConnected; }
     getBoundingClientRect() {
       const top = this.parent ? this.parent.children.indexOf(this) * 100 - this.parent.scrollTop : 0;
@@ -44,16 +47,17 @@ function fixture(preview = false) {
   }
   const list = new Element('ul');
   let rows = [];
-  const context = vm.createContext({ YouTubeLinks: { parse }, localPreview: preview, currentUsername: 'Alice', activeMusicPlayback: null,
+  const context = vm.createContext({ URL, YouTubeLinks: { parse }, localPreview: preview, currentUsername: 'Alice', activeMusicPlayback: null,
     chatState: { messages: new Map(), list: () => rows },
     document: { createElement: tag => new Element(tag), getElementById: () => list },
     messageHeader: () => new Element('header'), decorateMessage() {}, formatDhakaTime: () => '12:00',
-    scheduleReadReceipts() {}, scrollToBottom() {},
+    scheduleReadReceipts() {}, scrollToBottom() {}, stopVoicePlayback() {},
     displayMessage(data) { const node = new Element('li'); node.textContent = data.message; list.appendChild(node); },
     displaySystemMessage() {}, displayImageMessage() {}
   });
   vm.runInContext(html.slice(html.indexOf('      function displayMusicMessage('), html.indexOf('      let activeMusicPlayback')), context);
   vm.runInContext(html.slice(html.indexOf('      function stopMusicPlayback('), html.indexOf("      document.addEventListener('visibilitychange', () => { if (document.hidden) stopMusicPlayback();")), context);
+  vm.runInContext(html.slice(html.indexOf('      function safeVoiceUrl('), html.indexOf('      // Focus on username input on load')), context);
   vm.runInContext(html.slice(html.indexOf('      function renderChat('), html.indexOf('      function setReply(')), context);
   return { context, list, setRows(value) { rows = value; }, detachments: () => detachments };
 }
@@ -104,4 +108,15 @@ test('prepending older history preserves the visible anchor and attached music p
   assert.equal(f.list.scrollTop, 140);
   assert.equal(f.list.querySelector('iframe'), frame);
   assert.equal(f.detachments(), 0);
+});
+
+test('voice playback survives chat updates and is paused when its message is unsent', () => {
+  const voice = { _id: 'voice', type: 'voice', username: 'Alice', voicePath: 'https://res.cloudinary.com/test/video/upload/voice.mp3', voiceDuration: 15 };
+  const f = fixture(); f.setRows([voice]); f.context.renderChat();
+  const audio = f.list.querySelector('audio'); assert.equal(audio.preload, 'none'); assert.equal(audio.controls, true);
+  audio.paused = false;
+  f.setRows([{ ...voice, revision: 1, seenBy: 'Bob' }, { _id: 'other', type: 'message', message: 'Hello' }]); f.context.renderChat();
+  assert.equal(f.list.querySelector('audio'), audio); assert.equal(audio.paused, false);
+  f.setRows([{ ...voice, deleted: true }]); f.context.renderChat();
+  assert.equal(audio.paused, true); assert.equal(f.list.querySelector('audio'), null);
 });

@@ -12,6 +12,7 @@ const { createMessageService, registerMessageHandlers } = require('./message-ser
 const { createBackgroundService, registerBackgroundHandlers } = require('./background-service');
 const { createImageLifecycle } = require('./image-lifecycle');
 const { createHistoryService, registerHistoryHandlers } = require('./history-service');
+const { MAX_VOICE_BYTES, VOICE_TYPES, isTrustedVoiceUrl, createVoiceUploadHandler } = require('./voice-service');
 require('dotenv').config();
 
 const app = express();
@@ -62,13 +63,16 @@ cloudinary.config({
 const messageSchema = new mongoose.Schema({
   type: {
     type: String,
-    enum: ['message', 'image', 'music', 'system'],
+    enum: ['message', 'image', 'music', 'voice', 'system'],
     required: true
   },
   username: String,
   message: String,
   imagePath: String,
   imagePublicId: String,
+  voicePath: String,
+  voicePublicId: String,
+  voiceDuration: Number,
   timestamp: String,
   clientId: String,
   replyTo: mongoose.Schema.Types.ObjectId,
@@ -97,6 +101,14 @@ const ImageUpload = mongoose.model('ImageUpload', new mongoose.Schema({
   cleanupRequested: { type: Boolean, default: false },
   createdAt: { type: Date, default: Date.now }
 }));
+const voiceUploadSchema = new mongoose.Schema({
+  username: { type: String, required: true }, clientId: { type: String, required: true },
+  url: { type: String, required: true }, publicId: { type: String, required: true }, duration: { type: Number, required: true },
+  activeUses: { type: Number, default: 0 }, deletionPending: { type: Boolean, default: false },
+  cleanupRequested: { type: Boolean, default: false }, createdAt: { type: Date, default: Date.now }
+});
+voiceUploadSchema.index({ username: 1, clientId: 1 }, { unique: true });
+const VoiceUpload = mongoose.model('VoiceUpload', voiceUploadSchema);
 const UserPreference = mongoose.model('UserPreference', new mongoose.Schema({
   username: { type: String, required: true, unique: true },
   theme: { type: String, enum: ['light', 'dark'], default: 'light' }
@@ -112,8 +124,14 @@ const imageLifecycle = createImageLifecycle({ ImageUpload, Message, Setting: Cha
   cloudName: process.env.CLOUDINARY_CLOUD_NAME,
   destroy: (publicId, options) => cloudinary.uploader.destroy(publicId, options)
 });
+const voiceLifecycle = createImageLifecycle({ ImageUpload: VoiceUpload, Message, Setting: { findOne: async () => null },
+  cloudName: process.env.CLOUDINARY_CLOUD_NAME, isTrustedUrl: isTrustedVoiceUrl,
+  pathField: 'voicePath', publicIdField: 'voicePublicId', resourceType: 'video',
+  destroy: (publicId, options) => cloudinary.uploader.destroy(publicId, options)
+});
 const messageService = createMessageService({ Message, ImageUpload, cloudName: process.env.CLOUDINARY_CLOUD_NAME,
-  getTime: getDhakaTime, withImageUse: imageLifecycle.withImageUse });
+  getTime: getDhakaTime, withImageUse: imageLifecycle.withImageUse, VoiceUpload,
+  withVoiceUse: voiceLifecycle.withImageUse, cleanupVoice: voiceLifecycle.cleanupImage });
 const backgroundService = createBackgroundService({ Setting: ChatBackground, ImageUpload,
   cloudName: process.env.CLOUDINARY_CLOUD_NAME, ...imageLifecycle });
 
@@ -206,6 +224,19 @@ app.use((err, req, res, next) => {
   }
   console.error('❌ Upload error:', err.message);
   res.status(500).json({ error: 'File upload failed: ' + err.message });
+});
+
+// Voice clips are kept in bounded memory and converted to MP3 before registration.
+const voiceUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: MAX_VOICE_BYTES, files: 1, fields: 1 },
+  fileFilter: (_req, file, cb) => cb(null, VOICE_TYPES.has(file.mimetype)) });
+app.post('/api/voice-upload', requireAuth, (req, res) => {
+  voiceUpload.single('file')(req, res, async error => {
+    if (error) return res.status(400).json({ error: 'Voice recording must be 5 MB or smaller.' });
+    try {
+      await VoiceUpload.init();
+      await createVoiceUploadHandler({ Upload: VoiceUpload, uploader: cloudinary.uploader, cloudName: process.env.CLOUDINARY_CLOUD_NAME })(req, res);
+    } catch { res.status(500).json({ error: 'Could not upload voice recording. Please retry.' }); }
+  });
 });
 
 // Get chat history endpoint

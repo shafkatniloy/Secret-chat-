@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const { createMessageService, registerMessageHandlers } = require('./message-service');
 const { ChatState } = require('../frontend/chat-state');
 
-function fixture() {
+function fixture(options = {}) {
   const rows = new Map();
   let serial = 0;
   const copy = obj => obj == null ? null : JSON.parse(JSON.stringify(obj));
@@ -42,7 +42,7 @@ function fixture() {
   const imageUrl = 'https://res.cloudinary.com/test/image/upload/v1/photo.jpg';
   const ImageUpload = { findOne: async query => query.username === 'Alice' && query._id === 'f'.repeat(24)
     ? { url: imageUrl, publicId: 'photo' } : null };
-  const service = createMessageService({ Message, ImageUpload, cloudName: 'test', getTime: () => '12:00 PM' });
+  const service = createMessageService({ Message, ImageUpload, cloudName: 'test', getTime: () => '12:00 PM', ...options });
   return { Message, rows, service, imageUrl };
 }
 const draft = (id, message = 'Hello') => ({ clientId: id.padEnd(20, '_'), message });
@@ -209,4 +209,28 @@ test('music rejects invalid payload sizes/types and keeps unsupported links as i
   for (const message of [null, {}, '', ' ', 'x'.repeat(2049)]) await assert.rejects(service.send('Alice', 'music', draft('bad-song', message)));
   const row = await service.send('Alice', 'music', draft('unsupported', 'javascript:alert(1)'));
   assert.equal(row.message, 'javascript:alert(1)');
+});
+
+test('voice messages use verified audio and preserve message actions; unsend cleans after persistence', async () => {
+  const url = 'https://res.cloudinary.com/test/video/upload/voice.mp3';
+  const cleaned = [];
+  const { service, rows } = fixture({ VoiceUpload: { async findOne(query) { return query.username === 'Alice' ? { url, publicId: 'voice', duration: 15 } : null; } },
+    async cleanupVoice(path) {
+      assert([...rows.values()].every(row => row.voicePath !== path));
+      cleaned.push(path);
+    } });
+  const data = { ...draft('voice'), uploadId: 'a'.repeat(24), voicePath: 'javascript:bad', voiceDuration: 999 };
+  const voice = await service.send('Alice', 'voice', data);
+  assert.equal(voice.voicePath, url); assert.equal(voice.voiceDuration, 15);
+  assert.equal((await service.send('Alice', 'voice', data))._id, voice._id);
+  await assert.rejects(service.send('Bob', 'voice', { ...data, clientId: 'bob-voice'.padEnd(20, '_') }));
+  const reply = await service.send('Bob', 'message', { ...draft('voice-reply'), replyTo: voice._id });
+  assert.equal((await service.present([reply]))[0].replyPreview.text, 'Voice message');
+  assert.equal((await service.seen('Bob', { messageIds: [voice._id] }))[0].seenBy, 'Bob');
+  assert.equal(Object.values((await service.react('Bob', { messageId: voice._id, emoji: '❤️' })).reactions)[0].emoji, '❤️');
+  await assert.rejects(service.unsend('Bob', { messageId: voice._id })); assert.equal(cleaned.length, 0);
+  const deleted = await service.unsend('Alice', { messageId: voice._id });
+  assert.equal(deleted.voicePath, undefined); assert.deepEqual(cleaned, [url]);
+  assert.equal((await service.present([deleted]))[0].voiceDuration, undefined);
+  await service.unsend('Alice', { messageId: voice._id }); assert.equal(cleaned.length, 1);
 });

@@ -645,6 +645,18 @@
       #historyButton { border: 0; background: transparent; color: inherit; font: inherit; font-size: 11px; min-height: 26px; padding: 4px 14px; cursor: pointer; }
       #historyButton:disabled { cursor: default; }
       #historyButton:focus-visible { outline: 2px solid #667eea; outline-offset: -2px; }
+      #voiceComposer[hidden], #voicePreview[hidden] { display: none; }
+      #voiceComposer { padding: 8px 12px; flex-shrink: 0; background: rgba(128,111,191,.12); }
+      .voice-composer-heading { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; margin-bottom: 6px; }
+      .voice-composer-controls { display: flex; gap: 6px; }
+      .voice-composer-controls button { border: 0; border-radius: 10px; padding: 8px 14px; min-height: 40px; color: inherit; background: rgba(128,111,191,.2); cursor: pointer; }
+      .voice-composer-controls button:disabled { opacity: .5; cursor: default; }
+      .voice-composer-controls button:focus-visible { outline: 2px solid #667eea; }
+      #messages li.voice-message { width: 340px; max-width: 100%; }
+      .voice-card { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; font-size: 13px; }
+      .voice-card audio, #voicePreview { display: block; width: 100%; height: 40px; }
+      #voicePreview { margin-bottom: 6px; }
+      body[data-theme="dark"] audio { color-scheme: dark; }
     </style>
   </head>
   <body>
@@ -695,6 +707,11 @@
       <div id="historyStatus" role="status" aria-live="polite"><button id="historyButton" type="button" disabled>Loading history…</button></div>
       <ul id="messages"></ul>
       <div id="replyComposer" hidden></div>
+      <section id="voiceComposer" aria-label="Record voice message" hidden>
+        <div class="voice-composer-heading"><span id="voiceStatus" role="status">Tap Record to start · up to 2 minutes</span><span id="voiceTimer" aria-label="Recording duration">0:00</span></div>
+        <audio id="voicePreview" controls preload="metadata" aria-label="Listen to your recording" hidden></audio>
+        <div class="voice-composer-controls"><button id="recordVoice" type="button">Record</button><button id="sendVoice" type="button" disabled>Send</button><button id="cancelVoice" type="button">Cancel</button></div>
+      </section>
       <form id="musicComposer" hidden>
         <label for="musicLinkInput">YouTube link</label>
         <div class="music-composer-row">
@@ -713,9 +730,11 @@
 
     <script src="chat-state.js"></script>
     <script src="youtube-links.js"></script>
+    <script src="voice-recorder.js"></script>
     <section id="attachmentMenu" class="message-menu" aria-label="Attachments" hidden>
       <button id="attachImage" type="button">Send image</button>
       <button id="attachMusic" type="button">Send music</button>
+      <button id="attachVoice" type="button">Voice message</button>
     </section>
     <section id="iconMenu" class="message-menu" aria-label="Icon menu" hidden>
       <button id="backgroundMenuButton" type="button" aria-expanded="false" aria-controls="backgroundMenu">
@@ -898,7 +917,7 @@
           forceNew: true
         });
 
-        stopMusicPlayback(); closeAttachmentMenu(); closeMusicComposer();
+        stopMusicPlayback(); stopVoicePlayback(); closeVoiceComposer(); closeAttachmentMenu(); closeMusicComposer();
         resetBackground();
         socket.on('background updated', applyBackground);
         socket.on('connect', () => {
@@ -941,10 +960,11 @@
           renderChat();
           scrollToBottom();
         });
-        for (const event of ['chat message', 'image message', 'music message', 'message updated', 'user joined', 'user left']) {
+        for (const event of ['chat message', 'image message', 'music message', 'voice message', 'message updated', 'user joined', 'user left']) {
           socket.on(event, receiveMessage);
         }
         socket.on('disconnect', () => {
+          voiceRecorder.stop(); stopVoicePlayback();
           resetHistory();
           stopMusicPlayback();
           connectionReady = false;
@@ -1008,9 +1028,10 @@
             if (data.type === 'music' && !data.deleted) node = displayMusicMessage(data, previous?.classList.contains('music-message') ? previous : null);
             else {
               if (data.type === 'system') displaySystemMessage(data);
+              else if (data.type === 'voice' && !data.status && !data.deleted) node = displayVoiceMessage(data, previous?.classList.contains('voice-message') ? previous : null);
               else if (data.type === 'image' && !data.status && !data.deleted) displayImageMessage(data);
               else displayMessage(data);
-              node = list.lastElementChild;
+              if (data.type !== 'voice' || data.status || data.deleted) node = list.lastElementChild;
             }
             node.dataset.messageKey = key;
             node.dataset.renderStamp = stamp;
@@ -1019,7 +1040,7 @@
         }
         const keep = new Set(desired);
         if (activeMusicPlayback && !keep.has(activeMusicPlayback.item)) stopMusicPlayback();
-        for (const node of [...list.children]) if (!keep.has(node)) node.remove();
+        for (const node of [...list.children]) if (!keep.has(node)) { node.querySelector('audio')?.pause(); node.remove(); }
         let cursor = list.firstChild;
         for (const node of desired) {
           if (node !== cursor) list.insertBefore(node, cursor);
@@ -1038,7 +1059,7 @@
         panel.hidden = !data;
         if (data) {
           const label = document.createElement('span');
-          label.textContent = 'Replying to ' + data.username + ': ' + (data.type === 'image' ? 'Photo' : data.type === 'music' ? 'YouTube music' : data.message || '').slice(0, 160);
+          label.textContent = 'Replying to ' + data.username + ': ' + (data.type === 'image' ? 'Photo' : data.type === 'music' ? 'YouTube music' : data.type === 'voice' ? 'Voice message' : data.message || '').slice(0, 160);
           const cancel = document.createElement('button');
           cancel.type = 'button'; cancel.textContent = '×'; cancel.setAttribute('aria-label', 'Cancel reply');
           cancel.onclick = () => setReply(null);
@@ -1050,7 +1071,7 @@
       function newDraft(type, values) {
         const draft = { username: currentUsername, clientId: crypto.randomUUID(), type,
           createdAt: new Date().toISOString(), replyTo: replyTarget?._id || null,
-          replyPreview: replyTarget ? { username: replyTarget.username, text: replyTarget.type === 'image' ? 'Photo' : replyTarget.type === 'music' ? 'YouTube music' : replyTarget.message } : null,
+          replyPreview: replyTarget ? { username: replyTarget.username, text: replyTarget.type === 'image' ? 'Photo' : replyTarget.type === 'music' ? 'YouTube music' : replyTarget.type === 'voice' ? 'Voice message' : replyTarget.message } : null,
           status: 'Sending…', ...values };
         chatState.pending.set(draft.clientId, draft);
         setReply(null);
@@ -1061,10 +1082,11 @@
       }
 
       async function uploadDraft(draft, connection) {
-            if (!draft.file) throw new Error('Select this image again to upload it.');
+            if (!draft.file) throw new Error(draft.type === 'voice' ? 'Record this voice message again.' : 'Select this image again to upload it.');
             const credentials = new TextEncoder().encode(`${connection.auth.username}:${connection.auth.password}`);
             const body = new FormData(); body.append('file', draft.file);
-            const response = await fetch(BACKEND_URL + '/api/upload', { method: 'POST', body,
+            if (draft.type === 'voice') body.append('clientId', draft.clientId);
+            const response = await fetch(BACKEND_URL + (draft.type === 'voice' ? '/api/voice-upload' : '/api/upload'), { method: 'POST', body,
               headers: { Authorization: 'Basic ' + btoa(Array.from(credentials, byte => String.fromCharCode(byte)).join('')) } });
             const uploaded = await response.json();
             if (!response.ok || !uploaded.uploadId) throw new Error(uploaded.error || 'Upload failed.');
@@ -1081,7 +1103,7 @@
         if (draft.busy) return;
         draft.busy = true; draft.status = 'Sending…'; renderChat();
         try {
-          if (draft.type === 'image' && !draft.uploadId) {
+          if (['image', 'voice'].includes(draft.type) && !draft.uploadId) {
             await uploadDraft(draft, connection);
           }
           if (state !== chatState || socket !== connection || !connection.connected) {
@@ -1089,7 +1111,7 @@
           }
           saveOutbox();
           const payload = { clientId: draft.clientId, message: draft.message, uploadId: draft.uploadId, replyTo: draft.replyTo };
-          connection.timeout(15000).emit(draft.type === 'image' ? 'image message' : draft.type === 'music' ? 'music message' : 'chat message', payload, (err, result) => {
+          connection.timeout(15000).emit(draft.type === 'image' ? 'image message' : draft.type === 'music' ? 'music message' : draft.type === 'voice' ? 'voice message' : 'chat message', payload, (err, result) => {
             draft.busy = false;
             if (state !== chatState) return;
             if (result?.ok && result.message) receiveMessage(result.message);
@@ -1218,7 +1240,7 @@
           const original = chatState?.messages.get(String(data.replyTo));
           const quote = document.createElement('button');
           quote.type = 'button'; quote.className = 'reply-quote';
-          const preview = original ? { username: original.username, text: original.deleted ? 'Message deleted' : original.type === 'image' ? 'Photo' : original.type === 'music' ? 'YouTube music' : original.message } : data.replyPreview;
+          const preview = original ? { username: original.username, text: original.deleted ? 'Message deleted' : original.type === 'image' ? 'Photo' : original.type === 'music' ? 'YouTube music' : original.type === 'voice' ? 'Voice message' : original.message } : data.replyPreview;
           quote.textContent = (preview?.username ? preview.username + ': ' : '') + String(preview?.text || 'Original message unavailable').slice(0, 200);
           quote.onclick = () => {
             const target = document.getElementById('message-' + data.replyTo);
@@ -1345,7 +1367,7 @@
         item.className = data.username === currentUsername ? 'own-message' : 'incoming-message';
         const text = document.createElement('div');
         text.className = 'message-text';
-        text.textContent = data.deleted ? 'This message was deleted' : data.type === 'image' ? 'Photo' : data.type === 'music' ? 'YouTube music' : data.message || '';
+        text.textContent = data.deleted ? 'This message was deleted' : data.type === 'image' ? 'Photo' : data.type === 'music' ? 'YouTube music' : data.type === 'voice' ? 'Voice message' : data.message || '';
         item.append(messageHeader(data), text);
         if (data._id || data.clientId) decorateMessage(item, data);
         document.getElementById('messages').appendChild(item);
@@ -1415,7 +1437,7 @@
 
       function handleLogout() {
         resetHistory();
-        stopMusicPlayback(); closeAttachmentMenu(); closeMusicComposer();
+        stopMusicPlayback(); stopVoicePlayback(); closeVoiceComposer(); closeAttachmentMenu(); closeMusicComposer();
         resetBackground();
         ++themeSession;
         connectionReady = false;
@@ -1643,10 +1665,10 @@
         positionMessageMenu({ querySelector: selector => selector === '.message-menu' ? attachmentMenu : attachmentButton });
       });
       document.getElementById('attachImage').addEventListener('click', () => {
-        closeAttachmentMenu(); closeMusicComposer(); document.getElementById('fileInput').click();
+        closeAttachmentMenu(); closeMusicComposer(); closeVoiceComposer(); document.getElementById('fileInput').click();
       });
       document.getElementById('attachMusic').addEventListener('click', () => {
-        closeAttachmentMenu(); musicComposer.hidden = false;
+        closeAttachmentMenu(); closeVoiceComposer(); musicComposer.hidden = false;
         document.getElementById('musicLinkInput').focus();
       });
       document.getElementById('cancelMusic').addEventListener('click', () => { closeMusicComposer(); attachmentButton.focus(); });
@@ -1664,6 +1686,7 @@
       document.addEventListener('keydown', event => {
         if (event.key !== 'Escape') return;
         if (!attachmentMenu.hidden) { closeAttachmentMenu(); attachmentButton.focus(); }
+        else if (!voiceComposer.hidden && voiceComposer.contains(event.target)) { closeVoiceComposer(); attachmentButton.focus(); }
         else if (!musicComposer.hidden && musicComposer.contains(event.target)) { closeMusicComposer(); attachmentButton.focus(); }
       });
       window.addEventListener('resize', closeAttachmentMenu);
@@ -1688,7 +1711,7 @@
             play.onclick = () => {
               if (localPreview) { label.textContent = 'Offline preview · YouTube playback requires the hosted app.'; return; }
               if (host.clientWidth < 200) { label.textContent = 'Open on YouTube or use a wider screen to play.'; return; }
-              stopMusicPlayback();
+              stopMusicPlayback(); stopVoicePlayback();
               const frame = document.createElement('iframe');
               frame.title = 'YouTube music video';
               frame.allow = 'autoplay; encrypted-media; picture-in-picture; fullscreen';
@@ -1780,6 +1803,83 @@
         updateHistoryControl();
         if (document.getElementById('messages').scrollTop < 40 && !historyState.error) loadOlderMessages();
       }, { passive: true });
+
+      const voiceComposer = document.getElementById('voiceComposer');
+      const voicePreview = document.getElementById('voicePreview');
+      const voiceRecorder = new VoiceRecorder({ onChange(state) {
+        const status = document.getElementById('voiceStatus');
+        const text = { idle: 'Tap Record to start · up to 2 minutes', requesting: 'Allow microphone access…', recording: 'Recording…', stopping: 'Preparing preview…', ready: 'Listen before sending', error: state.error }[state.phase];
+        if (status.textContent !== text) status.textContent = text;
+        const seconds = Math.floor(state.elapsed || 0);
+        document.getElementById('voiceTimer').textContent = Math.floor(seconds / 60) + ':' + String(seconds % 60).padStart(2, '0');
+        const record = document.getElementById('recordVoice');
+        record.textContent = state.phase === 'recording' ? 'Stop' : state.phase === 'ready' ? 'Re-record' : 'Record';
+        record.disabled = ['requesting', 'stopping'].includes(state.phase);
+        document.getElementById('sendVoice').disabled = state.phase !== 'ready';
+        voicePreview.hidden = state.phase !== 'ready';
+        if (state.url && voicePreview.getAttribute('src') !== state.url) voicePreview.src = state.url;
+        else if (!state.url && voicePreview.hasAttribute('src')) { voicePreview.pause(); voicePreview.removeAttribute('src'); voicePreview.load(); }
+      } });
+      function closeVoiceComposer() { voiceRecorder.cancel(); voiceComposer.hidden = true; }
+      function stopVoicePlayback() { document.querySelectorAll('audio').forEach(audio => audio.pause()); }
+      document.getElementById('attachVoice').addEventListener('click', () => {
+        closeAttachmentMenu(); closeMusicComposer(); closeVoiceComposer();
+        voiceComposer.hidden = false; document.getElementById('recordVoice').focus();
+      });
+      document.getElementById('recordVoice').addEventListener('click', () => {
+        if (voiceRecorder.state.phase === 'recording') voiceRecorder.stop();
+        else { stopMusicPlayback(); stopVoicePlayback(); voiceRecorder.start(); }
+      });
+      document.getElementById('cancelVoice').addEventListener('click', () => { closeVoiceComposer(); attachmentButton.focus(); });
+      document.getElementById('sendVoice').addEventListener('click', () => {
+        const state = voiceRecorder.state;
+        if (state.phase !== 'ready' || !state.blob || !currentUsername) return;
+        const extension = state.blob.type.includes('mp4') ? 'm4a' : state.blob.type.includes('ogg') ? 'ogg' : 'webm';
+        const file = new File([state.blob], 'voice.' + extension, { type: state.blob.type });
+        newDraft('voice', { file, message: 'Voice message' });
+        closeVoiceComposer(); document.getElementById('input').focus();
+      });
+      document.addEventListener('play', event => {
+        if (event.target.tagName !== 'AUDIO') return;
+        stopMusicPlayback();
+        document.querySelectorAll('audio').forEach(audio => { if (audio !== event.target) audio.pause(); });
+      }, true);
+      document.addEventListener('visibilitychange', () => { if (document.hidden) { voiceRecorder.stop(); stopVoicePlayback(); } });
+      window.addEventListener('pagehide', () => { closeVoiceComposer(); stopVoicePlayback(); });
+
+      function safeVoiceUrl(value) {
+        if (typeof value !== 'string' || /[\s<>"'\\]/.test(value)) return null;
+        try {
+          const url = new URL(value);
+          if (localPreview && url.protocol === 'blob:') return url.href;
+          return url.protocol === 'https:' && url.hostname === 'res.cloudinary.com' && !url.port && !url.username && !url.password && !url.search && !url.hash &&
+            /^\/[^/]+\/video\/upload\/.+\.mp3$/i.test(url.pathname) ? url.href : null;
+        } catch { return null; }
+      }
+      function displayVoiceMessage(data, existing) {
+        const item = existing || document.createElement('li');
+        item.className = (data.username === currentUsername ? 'own-message' : 'incoming-message') + ' voice-message';
+        const card = existing?.querySelector('.voice-card') || document.createElement('div');
+        if (!existing) {
+          card.className = 'voice-card';
+          const label = document.createElement('div'); label.textContent = 'Voice message';
+          const seconds = Math.min(120, Math.ceil(Number(data.voiceDuration) || 0));
+          if (seconds > 0) label.textContent += ' · ' + Math.floor(seconds / 60) + ':' + String(seconds % 60).padStart(2, '0');
+          card.appendChild(label);
+          const url = safeVoiceUrl(data.voicePath);
+          if (url) {
+            const audio = document.createElement('audio'); audio.controls = true; audio.preload = 'none'; audio.src = url;
+            audio.setAttribute('aria-label', 'Voice message playback');
+            audio.addEventListener('error', () => { label.textContent = 'Voice recording unavailable. Try refreshing the chat.'; });
+            card.appendChild(audio);
+          } else label.textContent = 'Voice recording unavailable';
+        }
+        for (const child of [...item.children]) if (child !== card) child.remove();
+        item.prepend(messageHeader(data)); if (!existing) item.appendChild(card);
+        decorateMessage(item, data);
+        if (!existing) document.getElementById('messages').appendChild(item);
+        return item;
+      }
 
       // Focus on username input on load
       window.addEventListener('load', () => {

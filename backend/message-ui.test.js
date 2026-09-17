@@ -168,3 +168,16 @@ test('music retries retain the link and use the music event with the same client
   assert.equal(calls[1].event, 'music message');
   assert.equal(calls[1].data.clientId, calls[0].data.clientId);
 });
+
+test('voice retries reuse the uploaded audio and survive outbox restoration', async () => {
+  const { context, calls, state } = fixture();
+  let uploads = 0;
+  context.uploadDraft = async draft => { uploads++; draft.uploadId = 'verified-voice'; delete draft.file; };
+  const draft = { clientId: 'voice-client-123', type: 'voice', message: 'Voice message', username: 'Alice', file: {} };
+  state.pending.set(draft.clientId, draft);
+  await context.sendDraft(draft); assert.equal(calls[0].event, 'voice message'); calls[0].callback(new Error('lost'));
+  context.openChatState('Bob'); context.openChatState('Alice');
+  await context.sendDraft(context.chatState.pending.get(draft.clientId));
+  assert.equal(uploads, 1); assert.equal(calls[1].data.uploadId, 'verified-voice');
+  assert.equal(calls[1].data.clientId, calls[0].data.clientId);
+});
