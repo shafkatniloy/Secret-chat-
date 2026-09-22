@@ -1,5 +1,39 @@
 # Changes by Codex
 
+## 2026-09-23 — Simplify birthday greetings
+
+- Changed the birthday banner to a single line: “Happy Birthday Ohona”. Removed the Bengali greeting and banner subtitle.
+- Removed the counter and “Birthday surprise” subtitle from each birthday wish, along with unused subtitle styling. Offline preview uses the same updated frontend; refresh to see it.
+- Birthday and music UI regression checks and diff whitespace checks passed. Browser visuals were not checked. Local only; frontend deployment required after approval to publish.
+
+## 2026-09-23 — Temporary Ohona birthday celebration
+
+- Added a birthday theme and greeting banner for September 24, 2026, from 00:00 Bangladesh time until September 25 at 00:00. Boundary timers and foreground checks activate/expire the celebration without requiring a reload.
+- Added exactly 100 temporary “Happy Birthday Ohona” wishes with varied emoji, grouped at the birthday boundary in the visible chat. Stable keys avoid duplication during normal rendering; the wishes disappear when the birthday ends.
+- Wishes are decorative, browser-rendered messages rather than database records or messages sent under either user's identity. They do not trigger message requests, read receipts, or permanent history spam. Saved appearance preferences are not changed.
+- Added festive light/dark styling and preserved existing message/media nodes, scroll anchoring, and the compact header/composer layout.
+- Added a Git-ignored offline date selector for the real date, before September 24, the birthday, and September 25. The date override cannot activate on the hosted site.
+- All 15 test files passed, including exact Bangladesh-midnight boundaries, expiry, 100 stable wishes, local-only preview gating, duplicate prevention, and uninterrupted music playback. JavaScript syntax and diff whitespace checks passed. Browser visual and live integration tests were not performed.
+- Local only. Deploy the frontend, including `birthday.js` and `birthday.css`, before the birthday to activate it on the hosted site. No backend or environment changes are needed.
+
+## 2026-09-20 — Add security, frontend, and feature ticket documents
+
+- Added `Security & Access Document.md`, `Frontend Spec Document.md`, and `Feature Ticket List.md` under `important md files/`, based on the current source and existing PRD/architecture documents.
+- Documented access permissions, validation, browser/storage boundaries, frontend flows and states, and a feature inventory with acceptance criteria. Separated pending verification and optional proposed work from implemented features; no backlog items were implemented or external issues created.
+- Documentation checks covered file presence, relative Markdown links, and diff whitespace. No application tests, browser checks, security scans, or live integrations were run. Local only; no deployment is required.
+
+## 2026-09-20 — Add technical architecture document
+
+- Created `important md files/Technical Architecture Document.md` from frontend/backend source inspection, covering components, data models, HTTP/socket interfaces, message and media flows, browser state, deployment dependencies, and operational limits.
+- Documented the shared YouTube parser dependency, single-process presence/broadcast scope, health endpoint limits, and guarded media cleanup behavior without including private configuration values.
+- Documentation only. Diff whitespace check passed; application tests and live integration checks were not run. Local only; no deployment is required.
+
+## 2026-09-20 — Add product requirements document
+
+- Created `important md files/PRD.md` describing the app's purpose, users, documented features, interface requirements, security, technical constraints, scope, and acceptance criteria.
+- Grounded the PRD in the README, project instructions, and recent changelog; distinguished documented implementation from deployed or live-verified behavior.
+- Documentation only. Checked diff whitespace; application tests were not run. Local only; no deployment is required.
+
 ## 2026-09-17 — Tap-to-record voice messages
 
 - Added Voice message to the glass attachment menu. The recording panel supports Record, Stop, a two-minute timer/automatic stop, local audio preview, Re-record, Send, and Cancel. Microphone permission is requested only on Record; cancellation, failure, and completion release the microphone. Hidden tabs stop recording, and logout/page exit discard the unsent composer recording.

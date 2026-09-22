@@ -658,6 +658,8 @@
       #voicePreview { margin-bottom: 6px; }
       body[data-theme="dark"] audio { color-scheme: dark; }
     </style>
+    <link rel="stylesheet" href="birthday.css">
+    <script src="birthday.js"></script>
   </head>
   <body>
     <!-- Login Screen -->
@@ -702,6 +704,9 @@
           <span id="themeStatus" role="status" aria-live="polite"></span>
         </div>
       </div>
+      <aside id="birthdayBanner" hidden aria-label="Birthday celebration">
+        <strong>Happy Birthday Ohona</strong>
+      </aside>
       <header id="countdownHeader" role="timer" hidden></header>
       <div id="chatError" class="error" role="alert" style="display: none; margin: 8px 12px 0; flex-shrink: 0;"></div>
       <div id="historyStatus" role="status" aria-live="polite"><button id="historyButton" type="button" disabled>Loading history…</button></div>
@@ -767,10 +772,35 @@
       let receiptTimer = null;
       let receiptBusy = false;
 
+      let birthdayPreviewTime = null;
+      let birthdayTimer = null;
+      let birthdayActive = false;
+
+      function refreshBirthday() {
+        clearTimeout(birthdayTimer);
+        const now = localPreview && birthdayPreviewTime !== null ? birthdayPreviewTime : Date.now();
+        const active = Birthday.isActive(now);
+        document.body.dataset.birthday = String(active);
+        document.getElementById('birthdayBanner').hidden = !active;
+        const changed = birthdayActive !== active;
+        birthdayActive = active;
+        if (changed && chatState) renderChat(true);
+        const boundary = now < Birthday.start ? Birthday.start : now < Birthday.end ? Birthday.end : now + 3600000;
+        birthdayTimer = setTimeout(refreshBirthday, Math.max(1, Math.min(boundary - now, 3600000)));
+      }
+
+      function setBirthdayPreview(mode) {
+        if (!localPreview) return;
+        birthdayPreviewTime = mode === 'birthday' ? Birthday.start + 12 * 3600000
+          : mode === 'after' ? Birthday.end : mode === 'before' ? Birthday.start - 1 : null;
+        refreshBirthday();
+      }
+
       let countdownInterval = null;
       const countdownTarget = Date.parse('2026-09-24T00:00:00+06:00');
 
       function updateCountdownHeader() {
+        refreshBirthday();
         clearInterval(countdownInterval);
         countdownInterval = null;
         const footer = document.getElementById('countdownHeader');
@@ -1037,6 +1067,18 @@
             node.dataset.renderStamp = stamp;
           }
           desired.push(node);
+        }
+        if (birthdayActive) {
+          const wishes = Birthday.wishes().map(wish => {
+            if (old.has(wish.key)) return old.get(wish.key);
+            const node = document.createElement('li');
+            node.className = 'birthday-wish'; node.dataset.messageKey = wish.key;
+            const text = document.createElement('span'); text.textContent = wish.text;
+            node.append(text);
+            return node;
+          });
+          const firstBirthdayMessage = chatState.list().findIndex(data => Date.parse(data.createdAt) >= Birthday.start);
+          desired.splice(firstBirthdayMessage < 0 ? desired.length : firstBirthdayMessage, 0, ...wishes);
         }
         const keep = new Set(desired);
         if (activeMusicPlayback && !keep.has(activeMusicPlayback.item)) stopMusicPlayback();
@@ -1906,6 +1948,8 @@
         ? 'The local preview adapter is missing. Keep offline-preview.js in this folder.'
         : 'Could not load chat. Refresh the page to retry.');
       document.body.appendChild(chatAdapter);
+      refreshBirthday();
+      document.addEventListener('visibilitychange', refreshBirthday);
     </script>
   </body>
 </html>

@@ -1,0 +1,25 @@
+/* Temporary September 24 overlay; saved themes and backgrounds stay untouched. */
+body[data-birthday="true"] { background: linear-gradient(135deg, #a73865, #634291); }
+body[data-birthday="true"] .chat-header { background: linear-gradient(110deg, #9d2854, #744292); }
+body[data-birthday="true"] .login-container { outline: 2px solid #f1c56c; }
+#birthdayBanner { flex-shrink: 0; text-align: center; padding: 9px 12px; background: #fff0d6; color: #7b234b; border-bottom: 1px solid #ecc480; }
+#birthdayBanner strong { display: block; font-size: 16px; }
+#birthdayBanner[hidden] { display: none; }
+body[data-birthday="true"] #messages {
+  background-image: radial-gradient(circle, #e3a44066 1.5px, transparent 2px), radial-gradient(circle, #df649955 1.5px, transparent 2px);
+  background-size: 48px 48px, 70px 70px;
+  background-position: 0 0, 20px 25px;
+}
+#messages li.birthday-wish {
+  align-self: center; max-width: min(90%, 330px); padding: 8px 14px;
+  background: #fff0dc; color: #832651; border: 1px solid #e9bc76;
+  font-size: 13px; text-align: center; box-shadow: none; animation: none;
+}
+#messages li.birthday-wish:nth-child(3n) { background: #fce5ef; }
+body[data-theme="dark"] #birthdayBanner { background: #412338; color: #ffe4ac; border-color: #86536a; }
+body[data-theme="dark"] #messages li.birthday-wish { background: #412338; color: #ffe4ac; border-color: #86536a; }
+body[data-theme="dark"] #messages li.birthday-wish:nth-child(3n) { background: #332744; }
+@media (max-width: 768px) {
+  #birthdayBanner { padding: 6px 8px; }
+  #birthdayBanner strong { font-size: 13px; }
+}
