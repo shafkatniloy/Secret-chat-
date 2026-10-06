@@ -1,5 +1,29 @@
 # Changes by Codex
 
+## 2026-10-06 — Five app colors in the logo menu
+
+- Added an expandable “App colors” section in the logo menu with preview swatches for Purple (original), Ocean Blue, Teal, Rose, and Sunset. Selected buttons expose their state with `aria-pressed`, and the menu repositions within the viewport when expanded.
+- Replaced the main gradient, button/focus accents, message-name accent, and own-message colors with palette variables, including matching dark-mode colors. Light/dark preference, selected chat background, and birthday-box styling are preserved.
+- Choices apply immediately and are stored separately by username in this browser; they do not sync between devices. Invalid saved values fall back to Purple. Unavailable storage keeps the choice usable for the session and shows a clear status. Logout restores the original palette.
+- The offline launcher uses the same frontend controls without an adapter change. Refresh, log in, open the logo menu, and choose App colors.
+- All 17 test files passed, including preference isolation, reload/invalid-value behavior, storage failures, palette application, dark-mode preservation, and selected-button accessibility state. JavaScript syntax and diff whitespace checks passed. Browser visuals remain unverified because no browser connection was available.
+- Local only; not pushed or deployed. Frontend deployment must include the new `frontend/colors.js` asset; refresh open tabs afterward. No backend changes are required.
+
+## 2026-10-06 — Set header countdown to February 24
+
+- Changed the top-panel countdown target to February 24, 2027 at midnight Bangladesh time, the next February 24. Existing Niloy-only visibility and countdown formatting are preserved.
+- Offline preview uses the same updated frontend. Verified the target resolves to February 23 at 18:00 UTC; inline JavaScript syntax and diff whitespace checks passed.
+- Local only; not pushed or deployed. Frontend deployment and tab refresh are required for the live countdown.
+
+## 2026-10-06 — Unread divider and new-message indicator
+
+- Added a single unread divider before the first loaded incoming message without a Seen receipt for the current user. Own messages, pending sends, deleted messages, join/leave notices, and birthday wishes are excluded. Existing receipt revisions handle duplicate events and updates without new server requests.
+- Added a compact, accessible new-message count and jump-to-latest button above the composer, with light/dark styling. The count covers loaded history only, including older pages as the user loads them; no background history sweep or global unread-count query was added.
+- Incoming messages preserve the visible message anchor when reading older history or when the window is unfocused. Focused chats at the bottom continue following new messages. Removed the delayed auto-scroll that could override a subsequent manual scroll. Divider updates preserve existing media nodes, and Seen still requires the existing focused/visible-message checks rather than merely clicking the jump button.
+- Updated the Git-ignored offline adapter with “Simulate message from Mim”. Scroll up, trigger the simulation, and check the divider/count without losing your place; use the new-message button to jump down.
+- All 16 test files passed, including unread filtering, account isolation, stale/duplicate delivery handling, focus/scroll indicator behavior, jump behavior, divider uniqueness, history anchoring, and media continuity. JavaScript syntax and diff whitespace checks passed. Browser connection was unavailable; mobile/desktop visuals and live two-device integration remain unverified.
+- Local only; not committed, pushed, or deployed. Deploy the frontend including the new `frontend/unread.js` asset and refresh open tabs. No backend deployment or database migration is needed.
+
 ## 2026-10-06 — Place birthday wishes in September 24 history
 
 - Set the 100 birthday wishes to September 24, 2026 at midnight Asia/Dhaka, with millisecond offsets preserving their sequence. Their special boxes and the normal site theme remain unchanged.

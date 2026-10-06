@@ -48,7 +48,8 @@ function fixture(preview = false) {
   const list = new Element('ul');
   let rows = [];
   const context = vm.createContext({ URL, YouTubeLinks: { parse }, localPreview: preview, currentUsername: 'Alice', activeMusicPlayback: null,
-    chatState: { messages: new Map(), list: () => rows },
+    chatHasFocus: () => true, unreadMessages: require('../frontend/unread').unreadMessages, updateNewMessagesIndicator() {},
+    chatState: { username: 'Alice', messages: new Map(), list: () => rows },
     document: { createElement: tag => new Element(tag), getElementById: () => list },
     messageHeader: () => new Element('header'), decorateMessage() {}, formatDhakaTime: () => '12:00',
     scheduleReadReceipts() {}, scrollToBottom() {}, stopVoicePlayback() {},
@@ -105,7 +106,7 @@ test('prepending older history preserves the visible anchor and attached music p
   f.setRows([{ _id: 'older', type: 'message', username: 'Bob', message: 'Earlier' }, song]);
   f.context.renderChat(true);
   assert.equal(item.getBoundingClientRect().top, before);
-  assert.equal(f.list.scrollTop, 140);
+  assert.equal(f.list.scrollTop, 240); // Older row plus unread divider; the original bubble stays in place.
   assert.equal(f.list.querySelector('iframe'), frame);
   assert.equal(f.detachments(), 0);
 });
@@ -119,4 +120,32 @@ test('voice playback survives chat updates and is paused when its message is uns
   assert.equal(f.list.querySelector('audio'), audio); assert.equal(audio.paused, false);
   f.setRows([{ ...voice, deleted: true }]); f.context.renderChat();
   assert.equal(audio.paused, true); assert.equal(f.list.querySelector('audio'), null);
+});
+
+test('unread divider stays unique and receipt updates preserve the visible message', () => {
+  const f = fixture();
+  const incoming = { _id: 'incoming', type: 'message', username: 'Bob', message: 'New' };
+  f.setRows([song, incoming]); f.context.renderChat();
+  assert.equal(f.list.children.filter(node => node.className === 'unread-divider').length, 1);
+  assert.equal(f.list.children[1].className, 'unread-divider');
+  f.context.renderChat();
+  assert.equal(f.list.children.filter(node => node.className === 'unread-divider').length, 1);
+  f.setRows([song, { ...incoming, seenBy: 'Alice', revision: 1 }]); f.context.renderChat(true);
+  assert.equal(f.list.children.filter(node => node.className === 'unread-divider').length, 0);
+});
+
+test('arrival while scrolled up or unfocused does not auto-scroll or detach playing music', () => {
+  const f = fixture();
+  f.setRows([song]); f.context.renderChat(); f.list.querySelector('button').onclick();
+  const frame = f.list.querySelector('iframe');
+  let jumps = 0; f.context.scrollToBottom = () => jumps++;
+  f.list.scrollHeight = 1500; f.list.scrollTop = 20;
+  const incoming = { _id: 'incoming', username: 'Bob', type: 'message', message: 'New' };
+  f.setRows([song, incoming]); f.context.renderChat();
+  assert.equal(jumps, 0); assert.equal(f.list.scrollTop, 20);
+  assert.equal(f.list.querySelector('iframe'), frame); assert.equal(f.detachments(), 0);
+  f.list.scrollHeight = 500; f.list.scrollTop = 0; f.context.chatHasFocus = () => false;
+  f.setRows([song, incoming, { ...incoming, _id: 'next' }]); f.context.renderChat();
+  assert.equal(jumps, 0);
+  f.context.chatHasFocus = () => true; f.context.renderChat(); assert.equal(jumps, 1);
 });

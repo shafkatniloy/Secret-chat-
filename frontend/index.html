@@ -6,6 +6,15 @@
     <title>আমাদের কথা</title>
     <link rel="icon" type="image/png" href="assets/favicon.png">
     <style>
+      :root { --brand-start: #667eea; --brand-end: #764ba2; --brand-rgb: 102,126,234; --brand-soft: #e8eaff;
+        --brand-dark-start: #303977; --brand-dark-end: #49316b; --brand-dark-soft: #37366b; --brand-light-accent: #bdc6ff; }
+      #colorOptions[hidden] { display: none; }
+      #colorOptions { padding: 4px; border-top: 1px solid rgba(128,128,128,.3); }
+      #colorOptions button { display: flex; align-items: center; gap: 10px; min-height: 44px; }
+      #colorOptions button[aria-pressed="true"] { outline: 2px solid var(--brand-start); outline-offset: -2px; font-weight: 700; }
+      .color-swatch { width: 28px; height: 22px; border: 1px solid rgba(128,128,128,.5); border-radius: 6px; flex-shrink: 0; }
+      #colorStatus { font-size: 11px; padding: 4px 8px; }
+      #colorStatus:empty { display: none; }
       * { margin: 0; padding: 0; box-sizing: border-box; }
       html { height: 100%; overflow: hidden; }
       
@@ -16,7 +25,7 @@
         right: 0;
         overflow: hidden;
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        background: linear-gradient(135deg, var(--brand-start) 0%, var(--brand-end) 100%);
         height: 100vh;
         height: 100dvh;
         height: var(--app-height, 100dvh);
@@ -93,13 +102,13 @@
       
       .login-container input:focus {
         outline: none;
-        border-color: #667eea;
-        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        border-color: var(--brand-start);
+        box-shadow: 0 0 0 3px rgba(var(--brand-rgb), 0.1);
       }
       
       .login-container button {
         padding: 14px;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        background: linear-gradient(135deg, var(--brand-start) 0%, var(--brand-end) 100%);
         color: white;
         border: none;
         border-radius: 8px;
@@ -112,7 +121,7 @@
       
       .login-container button:hover {
         transform: translateY(-2px);
-        box-shadow: 0 10px 25px rgba(102, 126, 234, 0.4);
+        box-shadow: 0 10px 25px rgba(var(--brand-rgb), 0.4);
       }
       
       .login-container button:active {
@@ -145,7 +154,7 @@
         position: sticky;
         top: 0;
         z-index: 2;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        background: linear-gradient(135deg, var(--brand-start) 0%, var(--brand-end) 100%);
         color: white;
         padding: 16px 20px;
         display: flex;
@@ -246,7 +255,7 @@
 
       #messages li.own-message {
         align-self: flex-end;
-        background: #e8eaff;
+        background: var(--brand-soft);
         border-bottom-right-radius: 3px;
       }
 
@@ -283,7 +292,7 @@
         flex-wrap: wrap;
         gap: 4px 12px;
         font-weight: 600;
-        color: #667eea;
+        color: var(--brand-start);
         font-size: 13px;
         margin-bottom: 6px;
         display: flex;
@@ -338,13 +347,13 @@
       
       #input:focus {
         outline: none;
-        border-color: #667eea;
-        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        border-color: var(--brand-start);
+        box-shadow: 0 0 0 3px rgba(var(--brand-rgb), 0.1);
       }
       
       #form button {
         padding: 12px 16px;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        background: linear-gradient(135deg, var(--brand-start) 0%, var(--brand-end) 100%);
         color: white;
         border: none;
         border-radius: 8px;
@@ -357,7 +366,7 @@
       
       #form button:hover {
         transform: translateY(-2px);
-        box-shadow: 0 6px 20px rgba(102, 126, 234, 0.3);
+        box-shadow: 0 6px 20px rgba(var(--brand-rgb), 0.3);
       }
       
       #form button:active {
@@ -518,13 +527,13 @@
       body[data-theme="dark"] .login-container,
       body[data-theme="dark"] #form { background: #182235; }
       body[data-theme="dark"] .chat-container { background: #101827; }
-      body[data-theme="dark"] .chat-header { background: linear-gradient(135deg, #303977, #49316b); }
+      body[data-theme="dark"] .chat-header { background: linear-gradient(135deg, var(--brand-dark-start), var(--brand-dark-end)); }
       body[data-theme="dark"] #messages li { background: #233047; color: #e2e8f0; }
-      body[data-theme="dark"] #messages li.own-message { background: #37366b; }
+      body[data-theme="dark"] #messages li.own-message { background: var(--brand-dark-soft); }
       body[data-theme="dark"] #messages li.system { background: transparent; color: #a6b4c9; }
       #messages li.system .system-time { font-size: 10px; margin-left: 6px; }
       body[data-theme="dark"] .message-text { color: #edf2f7; }
-      body[data-theme="dark"] .message-header { color: #bdc6ff; }
+      body[data-theme="dark"] .message-header { color: var(--brand-light-accent); }
       body[data-theme="dark"] .message-time,
       body[data-theme="dark"] .login-subtitle { color: #b2bed0; }
       body[data-theme="dark"] input { background: #101827; color: #edf2f7; border-color: #485775; }
@@ -548,7 +557,7 @@
         #themeStatus {
           position: absolute; top: calc(100% + 4px); right: 8px;
           max-width: calc(100% - 16px); padding: 5px 8px;
-          background: #303977; color: #fff; border-radius: 6px;
+          background: var(--brand-dark-start); color: #fff; border-radius: 6px;
           font-size: 10px; pointer-events: none;
         }
         #form { flex-wrap: nowrap; padding: 10px 8px; gap: 6px; }
@@ -560,7 +569,7 @@
       #messages li:not(.system) .message-header { padding-right: 25px; }
       .message-actions summary { position: absolute; top: 7px; right: 5px; cursor: pointer; list-style: none; font-size: 24px; line-height: 28px; width: 28px; text-align: center; border-radius: 6px; }
       .message-actions summary::-webkit-details-marker { display: none; }
-      .message-actions summary:focus-visible, .message-menu button:focus-visible { outline: 2px solid #667eea; }
+      .message-actions summary:focus-visible, .message-menu button:focus-visible { outline: 2px solid var(--brand-start); }
       #messages li:has(.message-actions[open]) { animation: none; }
       .message-menu { position: fixed; z-index: 1000; box-sizing: border-box; width: 288px; max-width: calc(100vw - 16px); margin: 0; padding: 10px; border: 0; border-radius: 20px; background: linear-gradient(145deg, rgba(255,255,255,.92), rgba(237,232,255,.94)); color: #302b49; box-shadow: 0 16px 40px rgba(25,18,48,.2), inset 0 1px 1px rgba(255,255,255,.9), inset 0 -1px 1px rgba(132,112,190,.15); display: flex; flex-direction: column; gap: 6px; overflow-y: auto; overscroll-behavior: contain; }
       .message-menu button, .delivery-status button, .reaction-badges button { font: inherit; color: inherit; background: transparent; border: 1px solid #a0aec0; border-radius: 6px; padding: 6px 8px; cursor: pointer; }
@@ -582,13 +591,13 @@
       .reaction-badges button { font-size: 12px; padding: 2px 6px; }
       .delivery-status { margin-top: 7px; font-size: 11px; color: #596579; display: flex; gap: 8px; align-items: center; justify-content: flex-end; }
       .delivery-status button { padding: 2px 6px; }
-      .reply-quote { display: block; width: 100%; max-width: 320px; margin: 4px 0 8px; padding: 7px 9px; border: 0; border-left: 3px solid #667eea; border-radius: 4px; color: inherit; background: rgba(102,126,234,.12); text-align: left; font: inherit; font-size: 12px; overflow-wrap: anywhere; cursor: pointer; }
-      #replyComposer:not([hidden]) { display: flex; gap: 8px; align-items: center; justify-content: space-between; padding: 8px 12px; font-size: 12px; border-left: 3px solid #667eea; flex-shrink: 0; }
+      .reply-quote { display: block; width: 100%; max-width: 320px; margin: 4px 0 8px; padding: 7px 9px; border: 0; border-left: 3px solid var(--brand-start); border-radius: 4px; color: inherit; background: rgba(var(--brand-rgb),.12); text-align: left; font: inherit; font-size: 12px; overflow-wrap: anywhere; cursor: pointer; }
+      #replyComposer:not([hidden]) { display: flex; gap: 8px; align-items: center; justify-content: space-between; padding: 8px 12px; font-size: 12px; border-left: 3px solid var(--brand-start); flex-shrink: 0; }
       #replyComposer span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       #replyComposer button { border: 0; background: transparent; color: inherit; font-size: 24px; cursor: pointer; }
-      .reply-highlight { outline: 2px solid #667eea; }
+      .reply-highlight { outline: 2px solid var(--brand-start); }
       body[data-theme="dark"] .delivery-status { color: #b2bed0; }
-      body[data-theme="dark"] .reaction-picker button[aria-pressed="true"] { background: #49316b; }
+      body[data-theme="dark"] .reaction-picker button[aria-pressed="true"] { background: var(--brand-dark-end); }
       .delivery-icon { width: 12px; height: 12px; display: block; }
       .delivery-seen { width: 15px; color: #15803d; }
       body[data-theme="dark"] .delivery-seen { color: #4ade80; }
@@ -633,7 +642,7 @@
       .music-composer-row { display: flex; gap: 6px; align-items: center; }
       #musicLinkInput { flex: 1; min-width: 0; width: 0; padding: 10px; }
       #musicComposer button, .music-play { border: 0; border-radius: 10px; padding: 10px; min-height: 44px; color: inherit; background: rgba(128,111,191,.2); cursor: pointer; }
-      #musicComposer button:focus-visible, .music-play:focus-visible { outline: 2px solid #667eea; outline-offset: 2px; }
+      #musicComposer button:focus-visible, .music-play:focus-visible { outline: 2px solid var(--brand-start); outline-offset: 2px; }
       #messages li.music-message { width: 480px; max-width: 100%; }
       .music-card { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
       .music-label { font-size: 13px; }
@@ -644,19 +653,41 @@
       #historyStatus { height: 26px; flex-shrink: 0; text-align: center; }
       #historyButton { border: 0; background: transparent; color: inherit; font: inherit; font-size: 11px; min-height: 26px; padding: 4px 14px; cursor: pointer; }
       #historyButton:disabled { cursor: default; }
-      #historyButton:focus-visible { outline: 2px solid #667eea; outline-offset: -2px; }
+      #historyButton:focus-visible { outline: 2px solid var(--brand-start); outline-offset: -2px; }
       #voiceComposer[hidden], #voicePreview[hidden] { display: none; }
       #voiceComposer { padding: 8px 12px; flex-shrink: 0; background: rgba(128,111,191,.12); }
       .voice-composer-heading { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; margin-bottom: 6px; }
       .voice-composer-controls { display: flex; gap: 6px; }
       .voice-composer-controls button { border: 0; border-radius: 10px; padding: 8px 14px; min-height: 40px; color: inherit; background: rgba(128,111,191,.2); cursor: pointer; }
       .voice-composer-controls button:disabled { opacity: .5; cursor: default; }
-      .voice-composer-controls button:focus-visible { outline: 2px solid #667eea; }
+      .voice-composer-controls button:focus-visible { outline: 2px solid var(--brand-start); }
       #messages li.voice-message { width: 340px; max-width: 100%; }
       .voice-card { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; font-size: 13px; }
       .voice-card audio, #voicePreview { display: block; width: 100%; height: 40px; }
       #voicePreview { margin-bottom: 6px; }
       body[data-theme="dark"] audio { color-scheme: dark; }
+    </style>
+    <style>
+      #messages li.unread-divider {
+        align-self: stretch; max-width: none; width: 100%; padding: 8px 0;
+        display: flex; align-items: center; gap: 10px; background: transparent;
+        color: #4955a0; font-size: 12px; font-weight: 600; box-shadow: none;
+        border-radius: 0; text-align: center; flex-shrink: 0;
+      }
+      #messages li.unread-divider::before, #messages li.unread-divider::after {
+        content: ''; height: 1px; flex: 1; background: currentColor; opacity: .4;
+      }
+      #newMessagesBar { flex-shrink: 0; text-align: center; padding: 3px 8px; background: #f5f8ff; }
+      #newMessagesBar[hidden] { display: none; }
+      #newMessagesButton { min-height: 36px; padding: 5px 16px; border-radius: 20px; border: 1px solid var(--brand-start);
+        background: #eef0ff; color: #394791; font-size: 12px; cursor: pointer; }
+      #newMessagesButton:focus-visible { outline: 2px solid var(--brand-start); outline-offset: 2px; }
+      body[data-theme="dark"] #messages li.unread-divider { color: #c2caff; }
+      body[data-theme="dark"] #newMessagesBar { background: #192331; }
+      body[data-theme="dark"] #newMessagesButton { background: #303c55; color: #e3e8ff; }
+      #messages[data-background="gallery"] li.unread-divider { color: #fff; text-shadow: 0 1px 3px #000; }
+      #messages .unread-divider span { background: #eef0ff; color: #394791; padding: 3px 10px; border-radius: 12px; text-shadow: none; }
+      body[data-theme="dark"] #messages .unread-divider span { background: #303c55; color: #e3e8ff; }
     </style>
     <link rel="stylesheet" href="birthday.css">
     <script src="birthday.js"></script>
@@ -708,6 +739,7 @@
       <div id="chatError" class="error" role="alert" style="display: none; margin: 8px 12px 0; flex-shrink: 0;"></div>
       <div id="historyStatus" role="status" aria-live="polite"><button id="historyButton" type="button" disabled>Loading history…</button></div>
       <ul id="messages"></ul>
+      <div id="newMessagesBar" hidden><button id="newMessagesButton" type="button" aria-controls="messages" aria-live="polite"></button></div>
       <div id="replyComposer" hidden></div>
       <section id="voiceComposer" aria-label="Record voice message" hidden>
         <div class="voice-composer-heading"><span id="voiceStatus" role="status">Tap Record to start · up to 2 minutes</span><span id="voiceTimer" aria-label="Recording duration">0:00</span></div>
@@ -731,6 +763,8 @@
     </div>
 
     <script src="chat-state.js"></script>
+    <script src="unread.js"></script>
+    <script src="colors.js"></script>
     <script src="youtube-links.js"></script>
     <script src="voice-recorder.js"></script>
     <section id="attachmentMenu" class="message-menu" aria-label="Attachments" hidden>
@@ -743,6 +777,9 @@
         Chat background setting
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="m9 5 7 7-7 7" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </button>
+      <button id="colorMenuButton" type="button" aria-expanded="false" aria-controls="colorOptions">App colors ▾</button>
+      <div id="colorOptions" role="group" aria-label="App colors" hidden></div>
+      <p id="colorStatus" role="status" aria-live="polite"></p>
     </section>
     <section id="backgroundMenu" class="message-menu" aria-label="Chat background" hidden>
       <h2>Chat background</h2>
@@ -770,7 +807,7 @@
       let receiptBusy = false;
 
       let countdownInterval = null;
-      const countdownTarget = Date.parse('2026-09-24T00:00:00+06:00');
+      const countdownTarget = Date.parse('2027-02-24T00:00:00+06:00');
 
       function updateCountdownHeader() {
         clearInterval(countdownInterval);
@@ -825,6 +862,9 @@
       }
 
       async function loadTheme() {
+        let savedColor = 'purple';
+        try { savedColor = ChatColors.read(localStorage, currentUsername); } catch { /* Storage unavailable. */ }
+        applyColor(savedColor);
         const session = ++themeSession;
         const username = currentUsername;
         const saved = readLocalTheme(username);
@@ -879,10 +919,31 @@
       // Function to scroll messages to bottom
       function scrollToBottom() {
         const messagesContainer = document.getElementById('messages');
-        setTimeout(() => {
-          messagesContainer.scrollTop = messagesContainer.scrollHeight;
-        }, 50);
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        updateNewMessagesIndicator();
+        scheduleReadReceipts();
       }
+
+      function chatHasFocus() {
+        return document.visibilityState === 'visible' && document.hasFocus();
+      }
+
+      function updateNewMessagesIndicator() {
+        const list = document.getElementById('messages');
+        const count = chatState ? unreadMessages(chatState.list(), chatState.username).size : 0;
+        const atBottom = list.scrollHeight - list.scrollTop - list.clientHeight < 100;
+        const bar = document.getElementById('newMessagesBar');
+        bar.hidden = !count || (atBottom && chatHasFocus());
+        const button = document.getElementById('newMessagesButton');
+        const label = count + (count === 1 ? ' new message' : ' new messages') + ' ↓';
+        if (button.textContent !== label) button.textContent = label;
+        button.setAttribute('aria-label', label.replace(' ↓', '') + '. Jump to latest messages');
+      }
+
+      document.getElementById('newMessagesButton').addEventListener('click', scrollToBottom);
+      document.getElementById('messages').addEventListener('scroll', updateNewMessagesIndicator, { passive: true });
+      document.addEventListener('visibilitychange', updateNewMessagesIndicator);
+      window.addEventListener('focus', updateNewMessagesIndicator);
 
       function handleLogin(event) {
         event.preventDefault();
@@ -1016,12 +1077,27 @@
         if (!chatState) return;
         const list = document.getElementById('messages');
         const nearBottom = list.scrollHeight - list.scrollTop - list.clientHeight < 100;
+        preserveScroll = preserveScroll || !nearBottom || !chatHasFocus();
         const top = list.scrollTop;
-        const anchor = preserveScroll ? [...list.children].find(node => node.getBoundingClientRect().bottom > list.getBoundingClientRect().top) : null;
+        const anchor = preserveScroll ? [...list.children].find(node => node.dataset.messageKey !== 'unread-divider' && node.getBoundingClientRect().bottom > list.getBoundingClientRect().top) : null;
         const anchorTop = anchor?.getBoundingClientRect().top;
         const old = new Map([...list.children].map(node => [node.dataset.messageKey, node]));
         const desired = [];
-        for (const data of chatState.list()) {
+        const rows = chatState.list();
+        const unread = unreadMessages(rows, chatState.username);
+        let dividerAdded = false;
+        for (const data of rows) {
+          if (!dividerAdded && unread.has(String(data._id))) {
+            const divider = old.get('unread-divider') || document.createElement('li');
+            divider.dataset.messageKey = 'unread-divider';
+            divider.className = 'unread-divider';
+            if (!divider.firstChild) {
+              const label = document.createElement('span'); label.textContent = 'Unread messages';
+              divider.appendChild(label);
+            }
+            desired.push(divider);
+            dividerAdded = true;
+          }
           const key = String(data.clientId || data._id);
           const previous = old.get(key);
           const stamp = JSON.stringify([data, formatDhakaTime(data), data.replyTo ? chatState.messages.get(String(data.replyTo)) : null]);
@@ -1048,6 +1124,7 @@
           if (node !== cursor) list.insertBefore(node, cursor);
           cursor = node.nextSibling;
         }
+        updateNewMessagesIndicator();
         if (anchor?.isConnected) list.scrollTop += anchor.getBoundingClientRect().top - anchorTop;
         else if (!preserveScroll && nearBottom) scrollToBottom();
         else list.scrollTop = top;
@@ -1231,7 +1308,7 @@
           if (chatState !== state || socket !== connection) { scheduleReadReceipts(); return; }
           if (!err && result?.ok) {
             for (const message of result.messages || []) state.receive(message);
-            renderChat();
+            renderChat(true);
           } else scheduleReadReceipts(5000);
         });
       }
@@ -1448,6 +1525,7 @@
         setReply(null);
         document.getElementById('input').value = '';
         applyTheme('light');
+        applyColor('purple');
         if (socket) {
           socket.removeAllListeners();
           socket.disconnect();
@@ -1498,6 +1576,50 @@
       const backgroundMenu = document.getElementById('backgroundMenu');
       const backgroundMenuButton = document.getElementById('backgroundMenuButton');
 
+      const colorOptions = document.getElementById('colorOptions');
+      const colorMenuButton = document.getElementById('colorMenuButton');
+      function applyColor(id) {
+        if (!ChatColors.valid(id)) id = 'purple';
+        const palette = ChatColors.palettes[id];
+        const variables = { start: 'start', end: 'end', rgb: 'rgb', soft: 'soft', darkStart: 'dark-start',
+          darkEnd: 'dark-end', darkSoft: 'dark-soft', lightAccent: 'light-accent' };
+        for (const [key, variable] of Object.entries(variables)) {
+          document.documentElement.style.setProperty('--brand-' + variable, palette[key]);
+        }
+        document.body.dataset.color = id;
+        for (const button of colorOptions.querySelectorAll('[data-color]')) {
+          button.setAttribute('aria-pressed', String(button.dataset.color === id));
+        }
+      }
+      function closeColorOptions() {
+        colorOptions.hidden = true;
+        colorMenuButton.setAttribute('aria-expanded', 'false');
+        document.getElementById('colorStatus').textContent = '';
+      }
+      for (const [id, palette] of Object.entries(ChatColors.palettes)) {
+        const button = document.createElement('button'); button.type = 'button'; button.dataset.color = id;
+        button.setAttribute('aria-pressed', String(id === 'purple'));
+        const swatch = document.createElement('span'); swatch.className = 'color-swatch';
+        swatch.setAttribute('aria-hidden', 'true');
+        swatch.style.background = 'linear-gradient(135deg, ' + palette.start + ', ' + palette.end + ')';
+        const label = document.createElement('span'); label.textContent = palette.name;
+        button.append(swatch, label);
+        button.addEventListener('click', () => {
+          if (!currentUsername) return;
+          applyColor(id);
+          let saved = false;
+          try { saved = ChatColors.save(localStorage, currentUsername, id); } catch { /* Storage unavailable. */ }
+          document.getElementById('colorStatus').textContent = saved ? 'Saved for you in this browser.' : 'Applied for this session; browser storage is unavailable.';
+        });
+        colorOptions.appendChild(button);
+      }
+      colorMenuButton.addEventListener('click', () => {
+        closeBackgroundMenu();
+        colorOptions.hidden = !colorOptions.hidden;
+        colorMenuButton.setAttribute('aria-expanded', String(!colorOptions.hidden));
+        positionMessageMenu({ querySelector: selector => selector === '.message-menu' ? iconMenu : iconMenuButton });
+      });
+
       function closeBackgroundMenu() {
         backgroundMenu.hidden = true;
         backgroundMenuButton.setAttribute('aria-expanded', 'false');
@@ -1521,6 +1643,7 @@
         backgroundMenu.style.maxHeight = Math.max(0, bottom - Math.max(top, y)) + 'px';
       }
       backgroundMenuButton.addEventListener('click', () => {
+        closeColorOptions();
         if (!backgroundMenu.hidden) { closeBackgroundMenu(); return; }
         backgroundMenu.hidden = false;
         backgroundMenuButton.setAttribute('aria-expanded', 'true');
@@ -1538,6 +1661,7 @@
       });
 
       function closeIconMenu() {
+        closeColorOptions();
         closeBackgroundMenu();
         iconMenu.hidden = true;
         iconMenuButton.setAttribute('aria-expanded', 'false');
