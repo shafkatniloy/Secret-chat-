@@ -1,5 +1,13 @@
 # Changes by Codex
 
+## 2026-10-06 — Place birthday wishes in September 24 history
+
+- Set the 100 birthday wishes to September 24, 2026 at midnight Asia/Dhaka, with millisecond offsets preserving their sequence. Their special boxes and the normal site theme remain unchanged.
+- Backend startup now updates the timestamps of the existing birthday records by their stable IDs and inserts only missing wishes. Existing text and unrelated chat records are preserved; repeat startups do not duplicate wishes.
+- Updated offline sample wishes to use the same dates. Scroll back through older history to find them; they no longer appear at the current end of the conversation.
+- All 15 test files passed, including migration from the previous insertion date, repeat-run stability, and preservation of unrelated messages. JavaScript syntax and whitespace checks passed. Live database migration and browser visuals were not tested.
+- Local only; not pushed or deployed. Deploy the backend with the updated shared `frontend/birthday.js` module to migrate stored dates, then refresh open tabs to reload history. No direct production database changes were made.
+
 ## 2026-10-06 — Restore special birthday message boxes
 
 - Restored compact, centered birthday boxes with rounded borders and the original light/dark colors. Each contains only the wish and emoji, without a date subtitle, counter, or “Birthday surprise” line.
