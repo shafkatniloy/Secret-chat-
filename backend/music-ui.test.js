@@ -48,7 +48,6 @@ function fixture(preview = false) {
   const list = new Element('ul');
   let rows = [];
   const context = vm.createContext({ URL, YouTubeLinks: { parse }, localPreview: preview, currentUsername: 'Alice', activeMusicPlayback: null,
-    birthdayActive: false, Birthday: require('../frontend/birthday'),
     chatState: { messages: new Map(), list: () => rows },
     document: { createElement: tag => new Element(tag), getElementById: () => list },
     messageHeader: () => new Element('header'), decorateMessage() {}, formatDhakaTime: () => '12:00',
@@ -64,20 +63,6 @@ function fixture(preview = false) {
 }
 
 const song = { _id: 'song', clientId: 'client-song', type: 'music', username: 'Alice', message: 'https://youtu.be/dQw4w9WgXcQ?t=90' };
-
-test('birthday adds exactly 100 temporary wishes without duplicating them or interrupting music', () => {
-  const f = fixture(); f.setRows([song]); f.context.renderChat();
-  f.list.querySelector('button').onclick(); const frame = f.list.querySelector('iframe');
-  f.context.birthdayActive = true; f.context.renderChat(true);
-  assert.equal(f.list.children.filter(node => node.className === 'birthday-wish').length, 100);
-  f.context.renderChat(true);
-  assert.equal(f.list.children.length, 101);
-  assert.equal(f.list.querySelector('iframe'), frame);
-  assert.equal(f.detachments(), 0);
-  f.context.birthdayActive = false; f.context.renderChat(true);
-  assert.equal(f.list.children.length, 1);
-  assert.equal(f.list.querySelector('iframe'), frame);
-});
 
 test('music loads YouTube only on click, with a canonical timestamped embed URL', () => {
   const f = fixture(); f.setRows([song]); f.context.renderChat();

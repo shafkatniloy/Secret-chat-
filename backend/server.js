@@ -12,6 +12,7 @@ const { createMessageService, registerMessageHandlers } = require('./message-ser
 const { createBackgroundService, registerBackgroundHandlers } = require('./background-service');
 const { createImageLifecycle } = require('./image-lifecycle');
 const { createHistoryService, registerHistoryHandlers } = require('./history-service');
+const { ensureBirthdayHistory } = require('./birthday-history');
 const { MAX_VOICE_BYTES, VOICE_TYPES, isTrustedVoiceUrl, createVoiceUploadHandler } = require('./voice-service');
 require('dotenv').config();
 
@@ -67,6 +68,7 @@ const messageSchema = new mongoose.Schema({
     required: true
   },
   username: String,
+  celebration: { type: String, enum: ['birthday'] },
   message: String,
   imagePath: String,
   imagePublicId: String,
@@ -173,7 +175,7 @@ app.use(express.json());
 
 // Connect to MongoDB
 console.log('🔄 Connecting to MongoDB...');
-mongoose.connect(MONGODB_URI, {
+const databaseReady = mongoose.connect(MONGODB_URI, {
   retryWrites: true,
   w: 'majority',
   serverSelectionTimeoutMS: 5000,
@@ -181,8 +183,14 @@ mongoose.connect(MONGODB_URI, {
   ssl: true,
   tlsAllowInvalidCertificates: false,
   tlsAllowInvalidHostnames: false
-}).then(() => {
+}).then(async () => {
   console.log('✅ Connected to MongoDB');
+  try {
+    await ensureBirthdayHistory(Message);
+    console.log('Birthday wishes are saved in chat history.');
+  } catch {
+    console.error('Could not complete birthday history setup. Restart the backend to retry safely.');
+  }
 }).catch(() => {
   console.error('❌ MongoDB connection failed. Check database configuration and network access.');
   console.log('⚠️ Note: Backend will still work, but messages/images won\'t persist until MongoDB connects');
@@ -242,6 +250,7 @@ app.post('/api/voice-upload', requireAuth, (req, res) => {
 // Get chat history endpoint
 app.get('/api/messages', requireAuth, async (req, res) => {
   try {
+    await databaseReady;
     const messages = await Message.find()
       .sort({ createdAt: -1, _id: -1 })
       .limit(200);
@@ -358,6 +367,7 @@ io.on('connection', async (socket) => {
   });
   // Send chat history to the connected user (latest 200 messages in chronological order)
   try {
+    await databaseReady;
     const page = await historyService.page();
     if (socket.connected) socket.emit('load messages', page.messages, { cursor: page.cursor, hasMore: page.hasMore });
   } catch (err) {

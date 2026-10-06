@@ -1,5 +1,22 @@
 # Changes by Codex
 
+## 2026-10-06 — Restore special birthday message boxes
+
+- Restored compact, centered birthday boxes with rounded borders and the original light/dark colors. Each contains only the wish and emoji, without a date subtitle, counter, or “Birthday surprise” line.
+- Added a server-stored birthday marker so the permanent wishes use their own box styling while ordinary join/leave notices keep their existing appearance. The overall site theme, background, and header remain unchanged; no birthday banner returns.
+- Updated the ignored offline preview to use the same marker and rendering. Refresh the launcher and log in to inspect the boxes.
+- All 15 test files passed, including a rendering regression check distinguishing birthday boxes from ordinary system notices. JavaScript syntax and whitespace checks passed; browser visuals and live persistence remain unverified.
+- Local only, not pushed or deployed. Deploy both frontend and backend for permanent storage and matching display; no live wishes have been inserted by this work.
+
+## 2026-10-06 — Keep Ohona birthday wishes in permanent history
+
+- Replaced the temporary browser-only birthday display with 100 stored, app-generated system messages. On backend startup after MongoDB connects, a bounded bulk upsert inserts missing wishes with their actual insertion date, without impersonating either user.
+- Stable ObjectIds and insert-only updates prevent duplicate wishes or changed dates on restarts and partial retries. Concurrent duplicate-key races are accepted only after verifying all 100 records exist; failures log a generic retry instruction without database details. Initial history requests wait for startup setup.
+- Removed the birthday theme, banner, date timer, and decorative message injection. Wishes now use normal system-message styling and authenticated, paginated history; there are no counters or birthday subtitles. Existing appearance preferences remain in effect.
+- Updated the ignored offline adapter to include 100 simulated wishes in its history and removed the temporary date selector. Refresh the offline launcher and log in to preview; this is not live database persistence.
+- All 15 test files passed, including stable IDs, insertion dates, restart/partial-retry preservation, and concurrent/error handling. JavaScript syntax and diff whitespace checks passed. Browser visuals and live MongoDB/two-device behavior were not checked.
+- Local only: no push, deployment, or live database write performed. Deploy backend and frontend to activate; the backend will add the wishes to MongoDB on startup. Refresh open chat tabs afterward. The shared `frontend/birthday.js` file must remain available to the backend, as with the existing shared frontend modules.
+
 ## 2026-09-23 — Simplify birthday greetings
 
 - Changed the birthday banner to a single line: “Happy Birthday Ohona”. Removed the Bengali greeting and banner subtitle.
