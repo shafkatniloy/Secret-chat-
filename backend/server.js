@@ -19,6 +19,8 @@ const ChatColors = require('../frontend/colors');
 const Moods = require('../frontend/moods');
 const { createMoodService, registerMoodHandlers } = require('./mood-service');
 const { createMemoryService, registerMemoryHandlers } = require('./memory-service');
+const { createWorldService, registerWorldHandlers } = require('./world-service');
+const LittleWorld = require('../frontend/little-world');
 const { MAX_VOICE_BYTES, VOICE_TYPES, isTrustedVoiceUrl, createVoiceUploadHandler } = require('./voice-service');
 require('dotenv').config();
 
@@ -141,6 +143,17 @@ const UserMood = mongoose.model('UserMood', new mongoose.Schema({
   revision: { type: Number, default: 0 }
 }));
 const moodService = createMoodService({ Setting: UserMood, usernames: Object.keys(validUsers) });
+const WorldScene = mongoose.model('WorldScene', new mongoose.Schema({
+  _id: { type: String, default: 'shared' },
+  items: { type: [new mongoose.Schema({
+    id: { type: String, required: true }, owner: { type: String, required: true },
+    type: { type: String, enum: Object.keys(LittleWorld.decorations), required: true },
+    x: { type: Number, min: 5, max: 95, required: true }, y: { type: Number, min: 5, max: 95, required: true },
+    text: { type: String, maxlength: 80 }
+  }, { _id: false })], default: [] },
+  revision: { type: Number, default: 0 }
+}));
+const worldService = createWorldService({ Setting: WorldScene, usernames: Object.keys(validUsers) });
 const imageLifecycle = createImageLifecycle({ ImageUpload, Message, Setting: ChatBackground,
   cloudName: process.env.CLOUDINARY_CLOUD_NAME,
   destroy: (publicId, options) => cloudinary.uploader.destroy(publicId, options)
@@ -376,6 +389,7 @@ io.on('connection', async (socket) => {
   registerColorHandlers(socket, io, colorService);
   registerMoodHandlers(socket, io, moodService);
   registerMemoryHandlers(socket, io, memoryService);
+  registerWorldHandlers(socket, io, worldService);
 
   socket.on('disconnect', async () => {
     console.log(`${username} disconnected`);

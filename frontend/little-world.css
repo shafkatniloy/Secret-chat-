@@ -1,0 +1,43 @@
+
+    #worldDialog { margin:auto; width:min(94vw,640px); max-height:90dvh; overflow:auto; border:1px solid #cbd4e6; border-radius:22px;
+      padding:16px; color:#243047; background:#f5f8ff; }
+    #worldDialog::backdrop { background:#0009; }
+    #worldDialog header { display:flex; align-items:center; justify-content:space-between; gap:10px; }
+    #worldDialog h2 { font-size:20px; }
+    #worldDialog p { font-size:12px; line-height:1.5; margin:8px 0; }
+    #worldDialog button, #worldDialog select { min-height:40px; border:1px solid #a5b2cb; border-radius:10px; padding:7px 10px;
+      background:white; color:inherit; cursor:pointer; }
+    #worldDialog button:disabled { opacity:.45; cursor:default; }
+    #worldDialog button:focus-visible, #worldDialog select:focus-visible, #worldScene:focus-visible { outline:2px solid var(--brand-start); outline-offset:2px; }
+    .world-preview-controls { display:flex; align-items:center; gap:8px; flex-wrap:wrap; font-size:12px; margin:10px 0; }
+    .world-palette { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:6px; margin:10px 0; }
+    #worldDialog .world-palette button { padding:6px 2px; font-size:11px; }
+    .world-palette span { display:block; font-size:23px; margin-bottom:3px; }
+    #worldDialog .world-palette [aria-pressed=true] { border:2px solid var(--brand-start); background:var(--brand-soft); }
+    #worldScene { position:relative; width:100%; aspect-ratio:4/3; overflow:hidden; border-radius:18px; border:1px solid #66739c;
+      background:radial-gradient(ellipse at 50% 112%,#315e56 0 22%,transparent 22.4%), radial-gradient(ellipse at 5% 120%,#203c49 0 40%,transparent 40.5%),linear-gradient(#10182e,#252b54 70%,#36485f); }
+    #worldScene::before { content:''; position:absolute; inset:0; pointer-events:none; opacity:.45;
+      background-image:radial-gradient(circle,#fff 1px,transparent 1.5px),radial-gradient(circle,#d6e6ff 1px,transparent 1.5px);
+      background-size:73px 91px,113px 67px; background-position:23px 19px,41px 37px; }
+    #worldDialog .world-piece { position:absolute; width:44px; height:44px; min-height:44px; padding:0; display:grid; place-items:center;
+      transform:translate(-50%,-50%); border:1px solid transparent; background:transparent; font-size:32px; line-height:1;
+      user-select:none; -webkit-user-select:none; touch-action:none; cursor:grab; }
+    #worldDialog .world-piece[data-selected=true] { border-color:#ffdf80; background:#ffffff16; }
+    #worldDialog .world-piece:focus-visible { outline-color:#ffdf80; }
+    #worldDialog .world-piece.world-text { width:max-content; max-width:60%; height:auto; min-width:44px;
+      padding:7px 9px; font-family:inherit; font-size:14px; line-height:1.4; white-space:pre-wrap; overflow-wrap:anywhere;
+      color:#fff4d0; background:#17213cdd; border-color:#b9a57180; text-align:center; }
+    #worldDialog .world-piece.world-text[data-selected=true] { border-color:#ffdf80; }
+    #worldTextEditor[hidden] { display:none; }
+    #worldTextEditor { margin:8px 0; }
+    #worldTextEditor label { display:block; font-size:12px; margin-bottom:5px; }
+    #worldTextInput { box-sizing:border-box; width:100%; min-height:42px; padding:8px 10px; border:1px solid #a5b2cb;
+      border-radius:10px; background:white; color:#243047; font:inherit; font-size:14px; }
+    body[data-theme=dark] #worldTextInput { background:#233047; color:#e2e8f0; border-color:#485775; }
+    .world-bottom { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-top:10px; }
+    #worldDetails { flex:1; }
+    body[data-theme=dark] #worldDialog { background:#182235; color:#e2e8f0; border-color:#485775; }
+    body[data-theme=dark] #worldDialog button, body[data-theme=dark] #worldDialog select { background:#233047; border-color:#485775; }
+    body[data-theme=dark] #worldDialog .world-palette [aria-pressed=true] { background:var(--brand-dark-soft); }
+    body[data-theme=dark] #worldDialog .world-piece { background:transparent; }
+    @media(max-width:380px) { #worldDialog { padding:12px; } .world-palette { grid-template-columns:repeat(3,minmax(0,1fr)); } }

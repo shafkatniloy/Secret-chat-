@@ -712,6 +712,7 @@
       body[data-theme="dark"] #statsDialog button { background: var(--brand-dark-soft); color: #e2e8f0; }
     </style>
     <link rel="stylesheet" href="memory-jar.css">
+    <link rel="stylesheet" href="little-world.css">
     <link rel="stylesheet" href="moods.css">
     <link rel="stylesheet" href="birthday.css">
     <script src="birthday.js"></script>
@@ -790,6 +791,7 @@
     <script src="unread.js"></script>
     <script src="colors.js"></script>
     <script src="moods.js"></script>
+    <script src="little-world.js"></script>
     <script src="chat-stats.js"></script>
     <script src="youtube-links.js"></script>
     <script src="voice-recorder.js"></script>
@@ -835,6 +837,7 @@
     <script src="stats-ui.js"></script>
     <script src="mood-ui.js"></script>
     <script src="memory-jar.js"></script>
+    <script src="world-ui.js"></script>
     <script>
       // Get backend URL from environment or use default
       const BACKEND_URL = window.location.hostname === 'localhost' 
@@ -1028,11 +1031,13 @@
         socket.on('app color updated', applySharedColor);
         socket.on('mood updated', MoodUI.apply);
         socket.on('memory jar updated', MemoryJar.updated);
+        socket.on('world updated', WorldUI.apply);
         socket.on('connect', () => {
           resetSharedColor();
           loadSharedColor();
           resetHistory();
           currentUsername = username;
+          WorldUI.reset();
           MemoryJar.reset();
           MoodUI.reset(); MoodUI.load();
           chatState.messages.clear();
@@ -1076,6 +1081,7 @@
           socket.on(event, receiveMessage);
         }
         socket.on('disconnect', () => {
+          WorldUI.disconnect();
           MoodUI.disconnect();
           resetSharedColor();
           voiceRecorder.stop(); stopVoicePlayback();
@@ -1339,7 +1345,7 @@
 
       function sendReadReceipts() {
         if (receiptBusy || !socket?.connected || !connectionReady || !chatState ||
-            document.getElementById('memoryDialog')?.open ||
+            document.getElementById('memoryDialog')?.open || document.getElementById('worldDialog')?.open ||
             document.visibilityState !== 'visible' || !document.hasFocus() ||
             document.getElementById('chatScreen').style.display === 'none') return;
         const listRect = document.getElementById('messages').getBoundingClientRect();
@@ -1573,6 +1579,7 @@
 
       function handleLogout() {
         closeStats();
+        WorldUI.reset();
         MemoryJar.reset();
         MoodUI.reset();
         resetSharedColor();

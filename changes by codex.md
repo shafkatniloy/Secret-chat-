@@ -1,5 +1,29 @@
 # Changes by Codex
 
+## 2026-10-07 — Shared little world in the main app
+
+- Promoted the approved night-scene design to Logo → Our little world, including six decorations and safe Bangla/emoji text notes up to 80 characters. Preserved tap-to-place, owner labels, own-piece drag/keyboard movement/removal, mobile bounds, and light/dark controls.
+- Added a MongoDB-backed shared scene and authenticated Socket.IO loading/mutations/broadcasts. The server assigns ownership from authentication, validates IDs/types/coordinates/text, and uses atomic update filters to enforce ownership and the 30-piece cap under concurrent additions. Repeated add/remove requests are idempotent.
+- Sends position changes only on drop or a keyboard move, with no drag-stream requests or polling. Revision checks prevent older snapshots overwriting newer ones; remote snapshots wait while dragging and merge after completion/cancellation. Failed/uncertain saves restore the last confirmed state and offer Refresh. Logout clears state and late callbacks; chat read receipts are paused behind the world dialog.
+- The live world starts empty. Offline sample scenes are not uploaded. The ignored adapter now runs the same production UI with local persistence and explicitly local simulated-user/reset controls. The old ignored `offline-world.js` is no longer loaded.
+- All 24 test files passed. Tests cover authenticated ownership, persistence, concurrent capacity, duplicate retries, malformed payloads, live broadcasts, drag batching/cancellation, merging remote changes, stale revisions/logout responses, safe text rendering, and disabled live impersonation controls. JavaScript syntax and whitespace checks passed. Browser visuals, real touch interactions, and live MongoDB/two-device behavior remain unverified.
+- Local only; not committed, pushed, or deployed. Deploy both frontend and backend with `backend/world-service.js`, `frontend/little-world.js`, `frontend/little-world.css`, and `frontend/world-ui.js`, then refresh open tabs. The shared WorldScene record is created on the first edit; existing chat messages need no migration.
+
+## 2026-10-07 — Text notes in the offline little world
+
+- Added a Text option to the offline scene palette. Type up to 80 characters, including Bangla/emoji, then tap the scene to place the note. Text uses safe DOM text content, wraps in a readable box, and stays within scene edges.
+- Text supports the same owner-only dragging, keyboard movement, and removal as decorations. Notes and decorations share the 30-piece limit; valid notes persist in local browser storage and existing saved scenes still load.
+- Model checks passed for text validation, Bangla/emoji, ownership, persistence, existing-scene compatibility, and the shared limit. JavaScript syntax and whitespace checks passed; browser visuals and touch interactions remain unverified.
+- Offline only as requested. Changes are confined to the ignored local world script and this changelog; no live frontend/backend changes, push, or deployment.
+
+## 2026-10-07 — Offline shared little world example
+
+- Added an offline-only Logo → Our little world dialog with a night-sky scene and six decorations: moon, stars, cloud, flower, tree, and heart. Choose a decoration and tap to place it; drag your own pieces or use keyboard arrow keys. Enter/Space on the scene places the selected decoration in its center.
+- Added owner labels, own-piece removal, a 30-decoration limit, percentage-based placement within a fixed scene aspect ratio, canceled-drag restoration, and light/dark controls. Explicit preview controls switch between Niloy and Mim or reset the sample scene.
+- The example saves only in local browser storage, validates restored data, and falls back to session-only use if storage is unavailable. It makes no requests and does not change the live app. The ignored adapter loads the new ignored `frontend/offline-world.js`; production frontend/backend files are unchanged.
+- JavaScript syntax and diff whitespace checks passed. Model checks covered ownership, movement bounds, the decoration limit, invalid values, removal, and reload persistence. Browser visuals and real pointer/touch interactions were not verified.
+- Local preview only; not pushed or deployed. Refresh the offline launcher, log in, and open Logo → Our little world to try the example.
+
 ## 2026-10-07 — Shared Memory jar
 
 - Added “Save to memory jar” to real messages' three-dot menus and “Memory jar” to the logo menu. Both authenticated users can save text/photos/voice/music, browse 20 memories per page, pick a random memory, and remove a memory without deleting its chat message.
