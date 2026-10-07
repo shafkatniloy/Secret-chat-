@@ -689,6 +689,28 @@
       #messages .unread-divider span { background: #eef0ff; color: #394791; padding: 3px 10px; border-radius: 12px; text-shadow: none; }
       body[data-theme="dark"] #messages .unread-divider span { background: #303c55; color: #e3e8ff; }
     </style>
+    <style>
+      #statsDialog { margin: auto; width: min(92vw, 520px); max-height: min(85dvh, 700px); overflow-y: auto;
+        border: 1px solid #d5dbea; border-radius: 18px; padding: 18px; background: #f5f8ff; color: #243047; }
+      #statsDialog::backdrop { background: rgba(0,0,0,.55); }
+      .stats-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+      .stats-heading h2 { font-size: 20px; }
+      #statsDialog button { min-height: 44px; padding: 6px 12px; cursor: pointer; border: 1px solid var(--brand-start);
+        border-radius: 9px; background: var(--brand-soft); color: #243047; }
+      #statsDialog button:focus-visible { outline: 2px solid var(--brand-start); outline-offset: 2px; }
+      #statsDialog button:disabled { opacity: .6; cursor: wait; }
+      #statsContent { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 12px 0; }
+      .stats-card { padding: 12px; border-radius: 12px; background: white; overflow-wrap: anywhere; }
+      .stats-card > span { display: block; font-size: 12px; margin-bottom: 6px; }
+      .stats-card strong { display: block; font-size: 16px; }
+      .stats-card:nth-child(2), .stats-card:last-child { grid-column: 1 / -1; }
+      .stats-person { margin-top: 8px; font-size: 13px; }
+      .stats-person progress { display: block; width: 100%; height: 9px; margin-top: 5px; accent-color: var(--brand-start); }
+      #statsStatus, .stats-note { font-size: 12px; line-height: 1.5; margin: 8px 0; }
+      body[data-theme="dark"] #statsDialog { background: #182235; color: #e2e8f0; border-color: #485775; }
+      body[data-theme="dark"] .stats-card { background: #233047; }
+      body[data-theme="dark"] #statsDialog button { background: var(--brand-dark-soft); color: #e2e8f0; }
+    </style>
     <link rel="stylesheet" href="birthday.css">
     <script src="birthday.js"></script>
   </head>
@@ -765,6 +787,7 @@
     <script src="chat-state.js"></script>
     <script src="unread.js"></script>
     <script src="colors.js"></script>
+    <script src="chat-stats.js"></script>
     <script src="youtube-links.js"></script>
     <script src="voice-recorder.js"></script>
     <section id="attachmentMenu" class="message-menu" aria-label="Attachments" hidden>
@@ -779,6 +802,7 @@
       </button>
       <button id="colorMenuButton" type="button" aria-expanded="false" aria-controls="colorOptions">App colors ▾</button>
       <div id="colorOptions" role="group" aria-label="App colors" hidden></div>
+      <button id="statsMenuButton" type="button" aria-haspopup="dialog" aria-controls="statsDialog">Chat stats</button>
       <p id="colorStatus" role="status" aria-live="polite"></p>
     </section>
     <section id="backgroundMenu" class="message-menu" aria-label="Chat background" hidden>
@@ -789,7 +813,15 @@
       <button type="button" data-background="gallery" aria-pressed="false">Choose from gallery</button>
       <p id="backgroundStatus" role="status" aria-live="polite"></p>
     </section>
+    <dialog id="statsDialog" aria-labelledby="statsTitle">
+      <div class="stats-heading"><h2 id="statsTitle">Chat stats</h2><button id="closeStats" type="button" aria-label="Close chat stats">Close</button></div>
+      <p class="stats-note">Full saved history · Bangladesh time. Unsent messages, join/leave notices, and birthday wishes are excluded.</p>
+      <p id="statsStatus" role="status" aria-live="polite"></p>
+      <div id="statsContent"></div>
+      <button id="refreshStats" type="button">Refresh</button>
+    </dialog>
     <input id="backgroundFileInput" type="file" accept="image/jpeg,image/png,image/gif,image/webp" hidden>
+    <script src="stats-ui.js"></script>
     <script>
       // Get backend URL from environment or use default
       const BACKEND_URL = window.location.hostname === 'localhost' 
@@ -1516,6 +1548,7 @@
       }
 
       function handleLogout() {
+        closeStats();
         resetHistory();
         stopMusicPlayback(); stopVoicePlayback(); closeVoiceComposer(); closeAttachmentMenu(); closeMusicComposer();
         resetBackground();

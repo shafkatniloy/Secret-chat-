@@ -13,6 +13,7 @@ const { createBackgroundService, registerBackgroundHandlers } = require('./backg
 const { createImageLifecycle } = require('./image-lifecycle');
 const { createHistoryService, registerHistoryHandlers } = require('./history-service');
 const { ensureBirthdayHistory } = require('./birthday-history');
+const { getChatStats } = require('./stats-service');
 const { MAX_VOICE_BYTES, VOICE_TYPES, isTrustedVoiceUrl, createVoiceUploadHandler } = require('./voice-service');
 require('dotenv').config();
 
@@ -261,6 +262,16 @@ app.get('/api/messages', requireAuth, async (req, res) => {
 });
 
 // Health check endpoint
+app.get('/api/stats', requireAuth, async (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  try {
+    await databaseReady;
+    res.json(await getChatStats(Message));
+  } catch {
+    res.status(500).json({ error: 'Could not load chat stats. Please try again.' });
+  }
+});
+
 app.get('/api/preferences', requireAuth, async (req, res) => {
   res.set('Cache-Control', 'no-store');
   try {

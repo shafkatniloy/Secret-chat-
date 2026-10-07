@@ -1,5 +1,14 @@
 # Changes by Codex
 
+## 2026-10-07 — Chat stats in the logo menu
+
+- Added Logo menu → Chat stats with total messages, per-person counts and percentage bars, photo/voice/music counts, first conversation date, and the most active day. Dates use Asia/Dhaka; equal busiest-day totals choose the earliest date.
+- Added authenticated `/api/stats`, using one MongoDB aggregation over full saved history rather than loaded frontend pages. Unsent messages and all system notices (including birthday wishes) are excluded. The query has a 10-second execution limit; responses are marked no-store and errors do not expose database details.
+- Added a responsive light/dark dialog with keyboard dismissal, Close and Refresh controls, loading/retry/empty states, and safe text rendering. Requests run only when opened/refreshed, cannot overlap within the panel, time out, and are invalidated when closed or when the user/session changes.
+- Updated the ignored offline adapter to compute sample stats from its full simulated history, including unloaded pages. The panel clearly labels these results as offline sample stats.
+- All 18 test files passed; follow-up stats tests also passed for overlapping requests, closing, user switching, and retry behavior. Tests cover counting/exclusions, Bangladesh date boundaries, aggregation shape/results, and route authentication. JavaScript syntax and whitespace checks passed. Real MongoDB aggregation, two-device integration, and browser visual checks were not performed.
+- Local only; not committed, pushed, or deployed. Deploy both backend and frontend, including `frontend/chat-stats.js` and `frontend/stats-ui.js`, then refresh open tabs. No database migration is required.
+
 ## 2026-10-06 — Five app colors in the logo menu
 
 - Added an expandable “App colors” section in the logo menu with preview swatches for Purple (original), Ocean Blue, Teal, Rose, and Sunset. Selected buttons expose their state with `aria-pressed`, and the menu repositions within the viewport when expanded.
