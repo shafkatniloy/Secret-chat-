@@ -1,5 +1,14 @@
 # Changes by Codex
 
+## 2026-10-07 — Shared Memory jar
+
+- Added “Save to memory jar” to real messages' three-dot menus and “Memory jar” to the logo menu. Both authenticated users can save text/photos/voice/music, browse 20 memories per page, pick a random memory, and remove a memory without deleting its chat message.
+- Added MongoDB memory references with a unique message index, original saver/date, idempotent saves, validated IDs/cursors, and authenticated socket handlers. Message content comes from the saved original, not client input. Unsent, missing, and system messages are excluded from list/random results; saved references do not preserve media after unsend.
+- Added a responsive light/dark dialog, safe text/media rendering, explicit random/refresh/load-more controls, request timeouts, and overlapping-request protection. Shared changes prompt an open jar to refresh; removals and unsends hide affected cards immediately. Closing/logging out invalidates pending results and stops jar audio. Chat read receipts do not run behind the open jar.
+- Updated the ignored offline adapter to simulate saving, duplicate prevention, pagination, random selection, removal, and unsend exclusion using the actual frontend. Refresh the offline launcher, save a message from its menu, then open Logo → Memory jar.
+- All 22 test files passed; the follow-up read-receipt modal test passed. Tests cover authoritative saver identity, duplicate saves, invalid input, bounded pagination, unsafe image filtering, random selection exclusions, removal isolation, request concurrency, safe rendering, stale responses, and media cleanup. JavaScript syntax and whitespace checks passed. Browser visuals and live MongoDB/two-device behavior were not verified.
+- Local only; not committed, pushed, or deployed. Deploy both backend and frontend, including `backend/memory-service.js`, `frontend/memory-jar.js`, and `frontend/memory-jar.css`, then refresh open tabs. A Memory collection and unique messageId index are created by Mongoose; existing messages need no rewrite.
+
 ## 2026-10-07 — Live per-user moods with Bangla labels
 
 - Promoted the approved mood design into the real frontend: compact header badges for both configured users, a shared status popup, seven Bangla mood labels including angry, Clear mood, English controls/update times, and matching light/dark styling.

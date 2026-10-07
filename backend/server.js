@@ -18,6 +18,7 @@ const { createColorService, registerColorHandlers } = require('./color-service')
 const ChatColors = require('../frontend/colors');
 const Moods = require('../frontend/moods');
 const { createMoodService, registerMoodHandlers } = require('./mood-service');
+const { createMemoryService, registerMemoryHandlers } = require('./memory-service');
 const { MAX_VOICE_BYTES, VOICE_TYPES, isTrustedVoiceUrl, createVoiceUploadHandler } = require('./voice-service');
 require('dotenv').config();
 
@@ -156,6 +157,13 @@ const backgroundService = createBackgroundService({ Setting: ChatBackground, Ima
   cloudName: process.env.CLOUDINARY_CLOUD_NAME, ...imageLifecycle });
 
 const historyService = createHistoryService({ Message, present: messageService.present });
+const Memory = mongoose.model('Memory', new mongoose.Schema({
+  messageId: { type: mongoose.Schema.Types.ObjectId, required: true, unique: true },
+  savedBy: { type: String, required: true },
+  savedAt: { type: Date, default: Date.now }
+}));
+const memoryService = createMemoryService({ Memory, Message, present: messageService.present,
+  toId: id => new mongoose.Types.ObjectId(id) });
 
 // Setup multer with Cloudinary storage
 const storage = new CloudinaryStorage({
@@ -367,6 +375,7 @@ io.on('connection', async (socket) => {
   registerBackgroundHandlers(socket, io, backgroundService);
   registerColorHandlers(socket, io, colorService);
   registerMoodHandlers(socket, io, moodService);
+  registerMemoryHandlers(socket, io, memoryService);
 
   socket.on('disconnect', async () => {
     console.log(`${username} disconnected`);

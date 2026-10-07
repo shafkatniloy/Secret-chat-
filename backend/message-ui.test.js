@@ -10,6 +10,7 @@ function fixture() {
   const storage = new Map(), calls = [];
   const state = new ChatState('Alice');
   const context = vm.createContext({
+    MemoryJar: { messageUpdated() {} },
     chatState: state, currentUsername: 'Alice', connectionReady: true, replyTarget: null, ChatState,
     sessionStorage: { setItem: (key, value) => storage.set(key, value), getItem: key => storage.get(key) },
     socket: { connected: true, timeout() { return this; }, emit(event, data, callback) { calls.push({ event, data, callback }); } }
@@ -93,12 +94,13 @@ test('read receipts require focus and visible incoming message bubbles', () => {
   state.receive({ _id: 'offscreen', username: 'Bob', type: 'image' });
   state.receive({ _id: 'own', username: 'Alice', type: 'message' });
   state.receive({ _id: 'deleted', username: 'Bob', type: 'message', deleted: true });
-  let focused = true;
+  let focused = true, jarOpen = false;
   const calls = [];
   const context = vm.createContext({ chatState: state, currentUsername: 'Alice', receiptBusy: false,
     connectionReady: true, window: { innerHeight: 600 }, renderChat() {}, scheduleReadReceipts() {},
     socket: { connected: true, timeout() { return this; }, emit(event, payload, callback) { calls.push({ event, payload, callback }); } },
     document: { visibilityState: 'hidden', hasFocus: () => focused, getElementById(id) {
+      if (id === 'memoryDialog') return { open: jarOpen };
       if (id === 'chatScreen') return { style: { display: 'flex' } };
       return { getBoundingClientRect: () => id === 'messages' ? { top: 100, bottom: 500 }
         : id === 'message-offscreen' ? { top: 600, bottom: 650, height: 50 } : { top: 120, bottom: 170, height: 50 } };
@@ -108,7 +110,8 @@ test('read receipts require focus and visible incoming message bubbles', () => {
   context.sendReadReceipts(); assert.equal(calls.length, 0);
   context.document.visibilityState = 'visible'; focused = false;
   context.sendReadReceipts(); assert.equal(calls.length, 0);
-  focused = true; context.sendReadReceipts();
+  focused = true; jarOpen = true; context.sendReadReceipts(); assert.equal(calls.length, 0);
+  jarOpen = false; context.sendReadReceipts();
   assert.equal(calls.length, 1);
   assert.deepEqual(Array.from(calls[0].payload.messageIds), ['visible']);
   calls[0].callback(null, { ok: true, messages: [{ _id: 'visible', username: 'Bob', type: 'message', seenBy: 'Alice', revision: 1 }] });

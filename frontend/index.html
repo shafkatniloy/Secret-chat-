@@ -711,6 +711,7 @@
       body[data-theme="dark"] .stats-card { background: #233047; }
       body[data-theme="dark"] #statsDialog button { background: var(--brand-dark-soft); color: #e2e8f0; }
     </style>
+    <link rel="stylesheet" href="memory-jar.css">
     <link rel="stylesheet" href="moods.css">
     <link rel="stylesheet" href="birthday.css">
     <script src="birthday.js"></script>
@@ -804,6 +805,7 @@
       </button>
       <button id="colorMenuButton" type="button" aria-expanded="false" aria-controls="colorOptions">App colors ▾</button>
       <div id="colorOptions" role="group" aria-label="App colors" hidden></div>
+      <button id="memoryMenuButton" type="button" aria-haspopup="dialog" aria-controls="memoryDialog">Memory jar</button>
       <button id="statsMenuButton" type="button" aria-haspopup="dialog" aria-controls="statsDialog">Chat stats</button>
       <p id="colorStatus" role="status" aria-live="polite"></p>
     </section>
@@ -815,6 +817,13 @@
       <button type="button" data-background="gallery" aria-pressed="false">Choose from gallery</button>
       <p id="backgroundStatus" role="status" aria-live="polite"></p>
     </section>
+    <dialog id="memoryDialog" aria-labelledby="memoryTitle">
+      <div class="jar-heading"><h2 id="memoryTitle">Memory jar 💛</h2><button id="closeMemories" type="button">Close</button></div>
+      <p class="jar-note">A shared place for your favorite messages. Either of you can save or remove memories. Unsent messages disappear from the jar.</p>
+      <div class="jar-toolbar"><button id="randomMemory" type="button">Pick a memory 🎲</button><button id="refreshMemories" type="button">Refresh</button></div>
+      <p id="memoryStatus" role="status" aria-live="polite"></p><div id="memoryList"></div>
+      <button id="moreMemories" type="button" hidden>Load more</button>
+    </dialog>
     <dialog id="statsDialog" aria-labelledby="statsTitle">
       <div class="stats-heading"><h2 id="statsTitle">Chat stats</h2><button id="closeStats" type="button" aria-label="Close chat stats">Close</button></div>
       <p class="stats-note">Full saved history · Bangladesh time. Unsent messages, join/leave notices, and birthday wishes are excluded.</p>
@@ -825,6 +834,7 @@
     <input id="backgroundFileInput" type="file" accept="image/jpeg,image/png,image/gif,image/webp" hidden>
     <script src="stats-ui.js"></script>
     <script src="mood-ui.js"></script>
+    <script src="memory-jar.js"></script>
     <script>
       // Get backend URL from environment or use default
       const BACKEND_URL = window.location.hostname === 'localhost' 
@@ -1017,11 +1027,13 @@
         socket.on('background updated', applyBackground);
         socket.on('app color updated', applySharedColor);
         socket.on('mood updated', MoodUI.apply);
+        socket.on('memory jar updated', MemoryJar.updated);
         socket.on('connect', () => {
           resetSharedColor();
           loadSharedColor();
           resetHistory();
           currentUsername = username;
+          MemoryJar.reset();
           MoodUI.reset(); MoodUI.load();
           chatState.messages.clear();
           setReply(null);
@@ -1107,6 +1119,7 @@
       function receiveMessage(data) {
         if (!chatState) return;
         chatState.receive(data);
+        MemoryJar.messageUpdated(chatState.messages.get(String(data._id)));
         if (replyTarget && String(data._id) === String(replyTarget._id) && data.deleted) setReply(null);
         saveOutbox();
         renderChat();
@@ -1326,6 +1339,7 @@
 
       function sendReadReceipts() {
         if (receiptBusy || !socket?.connected || !connectionReady || !chatState ||
+            document.getElementById('memoryDialog')?.open ||
             document.visibilityState !== 'visible' || !document.hasFocus() ||
             document.getElementById('chatScreen').style.display === 'none') return;
         const listRect = document.getElementById('messages').getBoundingClientRect();
@@ -1395,6 +1409,9 @@
         const reply = document.createElement('button'); reply.type = 'button'; reply.textContent = 'Reply';
         reply.onclick = () => { details.open = false; setReply(data); };
         menu.appendChild(reply);
+        const saveMemory = document.createElement('button'); saveMemory.type = 'button'; saveMemory.textContent = 'Save to memory jar';
+        saveMemory.onclick = () => { details.open = false; MemoryJar.save(data); };
+        menu.appendChild(saveMemory);
         const reactLabel = document.createElement('span'); reactLabel.textContent = 'React'; menu.appendChild(reactLabel);
         const reactions = document.createElement('div'); reactions.className = 'reaction-picker';
         const own = Object.values(data.reactions || {}).find(entry => entry.username === currentUsername)?.emoji;
@@ -1556,6 +1573,7 @@
 
       function handleLogout() {
         closeStats();
+        MemoryJar.reset();
         MoodUI.reset();
         resetSharedColor();
         resetHistory();
