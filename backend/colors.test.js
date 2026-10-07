@@ -5,26 +5,10 @@ const path = require('node:path');
 const vm = require('node:vm');
 const ChatColors = require('../frontend/colors');
 
-test('palette preferences stay separate per user, restore on reload and reject invalid stored values', () => {
-  const data = new Map();
-  const storage = { getItem: key => data.get(key), setItem: (key, value) => data.set(key, value) };
+test('only the five predefined shared palettes are accepted', () => {
   assert.equal(Object.keys(ChatColors.palettes).length, 5);
-  assert.equal(ChatColors.read(storage, 'Alice'), 'purple');
-  assert.equal(ChatColors.save(storage, 'Alice', 'ocean'), true);
-  assert.equal(ChatColors.save(storage, 'Bob', 'rose'), true);
-  assert.equal(ChatColors.read(storage, 'Alice'), 'ocean');
-  assert.equal(ChatColors.read(storage, 'Bob'), 'rose');
-  assert.equal(ChatColors.save(storage, 'Alice', '__proto__'), false);
-  assert.equal(ChatColors.save(storage, '', 'teal'), false);
-  assert.equal(ChatColors.read(storage, 'Alice'), 'ocean');
-  data.set('chat-color:Alice', 'url(https://example.com)');
-  assert.equal(ChatColors.read(storage, 'Alice'), 'purple');
-});
-
-test('unavailable storage does not prevent using the palette for the current session', () => {
-  const storage = { getItem() { throw new Error('blocked'); }, setItem() { throw new Error('blocked'); } };
-  assert.equal(ChatColors.read(storage, 'Alice'), 'purple');
-  assert.equal(ChatColors.save(storage, 'Alice', 'sunset'), false);
+  for (const id of Object.keys(ChatColors.palettes)) assert.equal(ChatColors.valid(id), true);
+  for (const id of ['__proto__', 'invalid', null, {}, 'url(https://example.com)']) assert.equal(ChatColors.valid(id), false);
 });
 
 test('applying every palette preserves dark mode and exposes the selected color accessibly', () => {
@@ -44,4 +28,57 @@ test('applying every palette preserves dark mode and exposes the selected color 
     assert.deepEqual(buttons.filter(button => button['aria-pressed'] === 'true').map(button => button.dataset.color), [id]);
   }
   context.applyColor('invalid'); assert.equal(body.dataset.color, 'purple');
+});
+
+const { createColorService, registerColorHandlers } = require('./color-service');
+test('shared palette persists across service instances and ignores client-supplied revision or user', async () => {
+  let row = null;
+  const Setting = { findById: async id => { assert.equal(id, 'shared'); return row; },
+    async findOneAndUpdate(filter, update) {
+      assert.deepEqual(filter, { _id: 'shared' });
+      row = { color: update.$set.color, revision: (row?.revision || 0) + update.$inc.revision };
+      return row;
+    } };
+  const service = createColorService(Setting);
+  assert.deepEqual(await service.get(), { color: 'purple', revision: 0 });
+  await assert.rejects(service.set({ color: 'invalid' }), /Invalid/);
+  assert.equal(row, null);
+  assert.deepEqual(await service.set({ color: 'teal', revision: 900, username: 'Other' }), { color: 'teal', revision: 1 });
+  assert.deepEqual(await createColorService(Setting).get(), { color: 'teal', revision: 1 });
+  assert.deepEqual(await service.set({ color: 'rose' }), { color: 'rose', revision: 2 });
+});
+
+test('first-save duplicate races retry the shared row without a second upsert', async () => {
+  let calls = 0;
+  const service = createColorService({ async findOneAndUpdate(filter, update, options) {
+    if (++calls === 1) { assert.equal(options.upsert, true); throw { code: 11000 }; }
+    assert.equal(options.upsert, false); return { color: 'ocean', revision: 2 };
+  } });
+  assert.deepEqual(await service.set({ color: 'ocean' }), { color: 'ocean', revision: 2 });
+});
+
+test('successful changes broadcast to both users; storage failures never broadcast', async () => {
+  const handlers = {}, events = [];
+  let fail = false, reply;
+  registerColorHandlers({ username: 'Alice', on: (event, handler) => { handlers[event] = handler; } },
+    { emit: (...args) => events.push(args) },
+    { async set() { if (fail) throw new Error('private database detail'); return { color: 'teal', revision: 4 }; } });
+  await handlers['set app color']({ color: 'teal' }, data => { reply = data; });
+  assert.equal(reply.ok, true); assert.deepEqual(events[0], ['app color updated', reply.preference]);
+  fail = true;
+  await handlers['set app color']({ color: 'rose' }, data => { reply = data; });
+  assert.equal(events.length, 1); assert.equal(reply.ok, undefined);
+  assert.doesNotMatch(reply.error, /private database/);
+});
+
+test('late load or save responses cannot overwrite newer shared colors', () => {
+  const html = fs.readFileSync(path.join(__dirname, '../frontend/index.html'), 'utf8');
+  const applied = [];
+  const context = vm.createContext({ ChatColors, colorRevision: -1, applyColor: id => applied.push(id) });
+  vm.runInContext(html.slice(html.indexOf('      function applySharedColor('), html.indexOf('      function sharedColorRequest(')), context);
+  context.applySharedColor({ color: 'rose', revision: 3 });
+  context.applySharedColor({ color: 'purple', revision: 0 });
+  context.applySharedColor({ color: 'invalid', revision: 4 });
+  context.applySharedColor({ color: 'teal', revision: 4 });
+  assert.deepEqual(applied, ['rose', 'teal']);
 });

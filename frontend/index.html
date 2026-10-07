@@ -711,6 +711,7 @@
       body[data-theme="dark"] .stats-card { background: #233047; }
       body[data-theme="dark"] #statsDialog button { background: var(--brand-dark-soft); color: #e2e8f0; }
     </style>
+    <link rel="stylesheet" href="moods.css">
     <link rel="stylesheet" href="birthday.css">
     <script src="birthday.js"></script>
   </head>
@@ -787,6 +788,7 @@
     <script src="chat-state.js"></script>
     <script src="unread.js"></script>
     <script src="colors.js"></script>
+    <script src="moods.js"></script>
     <script src="chat-stats.js"></script>
     <script src="youtube-links.js"></script>
     <script src="voice-recorder.js"></script>
@@ -822,6 +824,7 @@
     </dialog>
     <input id="backgroundFileInput" type="file" accept="image/jpeg,image/png,image/gif,image/webp" hidden>
     <script src="stats-ui.js"></script>
+    <script src="mood-ui.js"></script>
     <script>
       // Get backend URL from environment or use default
       const BACKEND_URL = window.location.hostname === 'localhost' 
@@ -894,9 +897,6 @@
       }
 
       async function loadTheme() {
-        let savedColor = 'purple';
-        try { savedColor = ChatColors.read(localStorage, currentUsername); } catch { /* Storage unavailable. */ }
-        applyColor(savedColor);
         const session = ++themeSession;
         const username = currentUsername;
         const saved = readLocalTheme(username);
@@ -1015,9 +1015,14 @@
         stopMusicPlayback(); stopVoicePlayback(); closeVoiceComposer(); closeAttachmentMenu(); closeMusicComposer();
         resetBackground();
         socket.on('background updated', applyBackground);
+        socket.on('app color updated', applySharedColor);
+        socket.on('mood updated', MoodUI.apply);
         socket.on('connect', () => {
+          resetSharedColor();
+          loadSharedColor();
           resetHistory();
           currentUsername = username;
+          MoodUI.reset(); MoodUI.load();
           chatState.messages.clear();
           setReply(null);
           loadTheme();
@@ -1059,6 +1064,8 @@
           socket.on(event, receiveMessage);
         }
         socket.on('disconnect', () => {
+          MoodUI.disconnect();
+          resetSharedColor();
           voiceRecorder.stop(); stopVoicePlayback();
           resetHistory();
           stopMusicPlayback();
@@ -1549,6 +1556,8 @@
 
       function handleLogout() {
         closeStats();
+        MoodUI.reset();
+        resetSharedColor();
         resetHistory();
         stopMusicPlayback(); stopVoicePlayback(); closeVoiceComposer(); closeAttachmentMenu(); closeMusicComposer();
         resetBackground();
@@ -1611,6 +1620,55 @@
 
       const colorOptions = document.getElementById('colorOptions');
       const colorMenuButton = document.getElementById('colorMenuButton');
+      let colorRevision = -1, colorSession = 0, colorBusy = false;
+      function resetSharedColor() {
+        ++colorSession; colorRevision = -1; colorBusy = false;
+        for (const button of colorOptions.querySelectorAll('[data-color]')) button.disabled = false;
+      }
+      function applySharedColor(data) {
+        if (!data || !ChatColors.valid(data.color) || !Number.isSafeInteger(data.revision) || data.revision < colorRevision) return;
+        colorRevision = data.revision;
+        applyColor(data.color);
+      }
+      function sharedColorRequest(connection, event, data) {
+        return new Promise((resolve, reject) => {
+          connection.timeout(15000).emit(event, data, (error, result) => {
+            if (error || !result?.ok) reject(new Error(result?.error || 'Shared color request timed out.'));
+            else resolve(result.preference);
+          });
+        });
+      }
+      async function loadSharedColor() {
+        const connection = socket, session = colorSession;
+        try {
+          const preference = await sharedColorRequest(connection, 'get app color', {});
+          if (connection === socket && session === colorSession) applySharedColor(preference);
+        } catch {
+          if (connection === socket && session === colorSession) document.getElementById('colorStatus').textContent = 'Could not load shared color. Reconnect to retry.';
+        }
+      }
+      async function changeSharedColor(id) {
+        if (colorBusy || !ChatColors.valid(id)) return;
+        const status = document.getElementById('colorStatus');
+        if (!socket?.connected) { status.textContent = 'Reconnect before changing the shared color.'; return; }
+        const connection = socket, session = colorSession;
+        colorBusy = true;
+        for (const button of colorOptions.querySelectorAll('[data-color]')) button.disabled = true;
+        status.textContent = 'Saving for both users…';
+        try {
+          const preference = await sharedColorRequest(connection, 'set app color', { color: id });
+          if (connection !== socket || session !== colorSession) return;
+          applySharedColor(preference);
+          status.textContent = localPreview ? 'Shared color simulated in this preview.' : 'Shared color saved for both users.';
+        } catch {
+          if (connection === socket && session === colorSession) status.textContent = 'Could not confirm the color change. Reconnect to sync or try again.';
+        } finally {
+          if (session === colorSession) {
+            colorBusy = false;
+            for (const button of colorOptions.querySelectorAll('[data-color]')) button.disabled = false;
+          }
+        }
+      }
       function applyColor(id) {
         if (!ChatColors.valid(id)) id = 'purple';
         const palette = ChatColors.palettes[id];
@@ -1639,10 +1697,7 @@
         button.append(swatch, label);
         button.addEventListener('click', () => {
           if (!currentUsername) return;
-          applyColor(id);
-          let saved = false;
-          try { saved = ChatColors.save(localStorage, currentUsername, id); } catch { /* Storage unavailable. */ }
-          document.getElementById('colorStatus').textContent = saved ? 'Saved for you in this browser.' : 'Applied for this session; browser storage is unavailable.';
+          changeSharedColor(id);
         });
         colorOptions.appendChild(button);
       }

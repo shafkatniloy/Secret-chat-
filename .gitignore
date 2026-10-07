@@ -19,3 +19,4 @@ messages.json
 frontend/offline-test.html
 frontend/offline-preview.py
 frontend/offline-preview.js
+frontend/offline-mood.js

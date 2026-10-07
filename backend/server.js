@@ -14,6 +14,10 @@ const { createImageLifecycle } = require('./image-lifecycle');
 const { createHistoryService, registerHistoryHandlers } = require('./history-service');
 const { ensureBirthdayHistory } = require('./birthday-history');
 const { getChatStats } = require('./stats-service');
+const { createColorService, registerColorHandlers } = require('./color-service');
+const ChatColors = require('../frontend/colors');
+const Moods = require('../frontend/moods');
+const { createMoodService, registerMoodHandlers } = require('./mood-service');
 const { MAX_VOICE_BYTES, VOICE_TYPES, isTrustedVoiceUrl, createVoiceUploadHandler } = require('./voice-service');
 require('dotenv').config();
 
@@ -123,6 +127,19 @@ const ChatBackground = mongoose.model('ChatBackground', new mongoose.Schema({
   imagePath: { type: String, default: null },
   revision: { type: Number, default: 0 }
 }));
+const ChatColor = mongoose.model('ChatColor', new mongoose.Schema({
+  _id: { type: String, default: 'shared' },
+  color: { type: String, enum: Object.keys(ChatColors.palettes), default: 'purple' },
+  revision: { type: Number, default: 0 }
+}));
+const colorService = createColorService(ChatColor);
+const UserMood = mongoose.model('UserMood', new mongoose.Schema({
+  _id: { type: String, required: true },
+  mood: { type: String, enum: [...Moods.options.map(option => option.id), null], default: null },
+  updatedAt: { type: Date, default: null }, expiresAt: { type: Date, default: null },
+  revision: { type: Number, default: 0 }
+}));
+const moodService = createMoodService({ Setting: UserMood, usernames: Object.keys(validUsers) });
 const imageLifecycle = createImageLifecycle({ ImageUpload, Message, Setting: ChatBackground,
   cloudName: process.env.CLOUDINARY_CLOUD_NAME,
   destroy: (publicId, options) => cloudinary.uploader.destroy(publicId, options)
@@ -348,6 +365,8 @@ io.on('connection', async (socket) => {
   registerMessageHandlers(socket, io, messageService);
   registerHistoryHandlers(socket, historyService);
   registerBackgroundHandlers(socket, io, backgroundService);
+  registerColorHandlers(socket, io, colorService);
+  registerMoodHandlers(socket, io, moodService);
 
   socket.on('disconnect', async () => {
     console.log(`${username} disconnected`);

@@ -7,16 +7,7 @@
     sunset: { name: 'Sunset', start: '#b95420', end: '#a32d50', rgb: '185,84,32', soft: '#fcebdd', darkStart: '#553421', darkEnd: '#502636', darkSoft: '#543c30', lightAccent: '#ffd0a6' }
   };
   function valid(id) { return typeof id === 'string' && Object.hasOwn(palettes, id); }
-  function read(storage, username) {
-    try { const id = storage.getItem('chat-color:' + username); return valid(id) ? id : 'purple'; }
-    catch { return 'purple'; }
-  }
-  function save(storage, username, id) {
-    if (!username || !valid(id)) return false;
-    try { storage.setItem('chat-color:' + username, id); return true; }
-    catch { return false; }
-  }
-  const ChatColors = { palettes, valid, read, save };
+  const ChatColors = { palettes, valid };
   if (typeof module !== 'undefined' && module.exports) module.exports = ChatColors;
   else root.ChatColors = ChatColors;
 })(typeof window !== 'undefined' ? window : globalThis);
